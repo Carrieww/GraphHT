@@ -1,0 +1,40 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+shit.py
+*.sh
+*.csv
+ca-GrQc.txt
+.DS_Store
+
+# Distribution / packaging
+.Python
+Diameter/__pycache__/
+Density/__pycache__/
+DegDistribution/__pycache__/
+CCDistribution/__pycache__/
+*/log_and_results*/
+
+# Unit test / coverage reports
+.cache
+
+
+# Django stuff:
+*.log
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm
+__pypackages__/
+
+# Environments
+.venv
+
+# PyCharm
+#  JetBrains specific template is maintained in a separate JetBrains.gitignore that can
+#  be found at https://github.com/github/gitignore/blob/main/Global/JetBrains.gitignore
+#  and can be added to the global gitignore or merged into this file.  For a more nuclear
+#  option (not recommended) you can uncomment the following to ignore the entire idea folder.
+.idea/
