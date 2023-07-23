@@ -1,9 +1,12 @@
 # Byte-compiled / optimized / DLL files
+datasets/
 __pycache__/
 shit.py
 *.sh
 *.csv
 ca-GrQc.txt
+outputacm.txt
+citation.py
 .DS_Store
 
 # Distribution / packaging

@@ -6,7 +6,7 @@ def parse_args():
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
     parser.add_argument(
-        "--dataset", type=str, default="facebook", help="dataset."
+        "--dataset", type=str, default="movielens", help="dataset."
     )  # facebook, ca_GrQc
     parser.add_argument(
         "--bins", type=int, default=100, help="num of bins for getting cc dist."

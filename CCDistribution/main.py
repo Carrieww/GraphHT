@@ -5,7 +5,9 @@ from collections import defaultdict
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
+import pandas as pd
 from config import parse_args
+from graphPreprocess import getMovieList, getRelationList, getUserList, moviePreprocess
 from littleballoffur import (
     BreadthFirstSearchSampler,
     CirculatedNeighborsRandomWalkSampler,
@@ -76,7 +78,34 @@ def main():
         graph = nx.relabel.convert_node_labels_to_integers(
             G, first_label=0, ordering="default"
         )
+    elif args.dataset == "movielens":
+        df_movies = pd.read_csv(
+            "/Users/wangyun/Documents/GitHub/GraphHT/ml-latest-small/movies.csv"
+        )
+        df_ratings = pd.read_csv(
+            "/Users/wangyun/Documents/GitHub/GraphHT/ml-latest-small/ratings.csv"
+        )
+        # df_tags = pd.read_csv(
+        #     "/Users/wangyun/Documents/GitHub/GraphHT/ml-latest-small/tags.csv"
+        # )
+        df_movies = moviePreprocess(df_movies)
+        movie_list = getMovieList(args, df_movies)
+        graph = nx.Graph()
+        graph.add_nodes_from(movie_list)
+        user_list = getUserList(df_movies, df_ratings)
+        graph.add_nodes_from(user_list)
+        relation_list = getRelationList(args, graph, df_movies, df_ratings)
 
+        # initiate graph
+        # graph = nx.Graph()
+        # graph.add_nodes_from(movie_list)
+        # graph.add_nodes_from(user_list)
+        graph.add_edges_from(relation_list)
+        largest_cc = max(nx.connected_components(graph), key=len)
+        largest_graph = graph.subgraph(largest_cc)
+        graph = nx.relabel.convert_node_labels_to_integers(
+            largest_graph, first_label=0, ordering="default"
+        )
     args.num_nodes = graph.number_of_nodes()
     args.num_edges = graph.number_of_edges()
     args.logger.info(f"{args.dataset} has {args.num_nodes} nodes.")

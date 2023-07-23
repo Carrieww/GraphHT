@@ -5,10 +5,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="facebook", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
     # SRW, CNARW
     parser.add_argument(
-        "--sampling_method", type=str, default="SRW", help="sampling method."
+        "--sampling_method", type=str, default="RES_Induction", help="sampling method."
     )
     parser.add_argument(
         "--with_weight_func",
