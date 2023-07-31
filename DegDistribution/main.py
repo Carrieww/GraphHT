@@ -1,4 +1,5 @@
 import os
+import pickle
 import random
 from collections import defaultdict
 
@@ -7,7 +8,15 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 from config import parse_args
-from graphPreprocess import getMovieList, getRelationList, getUserList, moviePreprocess
+from graphPreprocess import (
+    getAuthorList,
+    getMovieList,
+    getPaperList,
+    getRelationList,
+    getRelationLists,
+    getUserList,
+    moviePreprocess,
+)
 from littleballoffur import (
     BreadthFirstSearchSampler,
     CirculatedNeighborsRandomWalkSampler,
@@ -92,20 +101,58 @@ def main():
         movie_list = getMovieList(args, df_movies)
         graph = nx.Graph()
         graph.add_nodes_from(movie_list)
-        user_list = getUserList(df_movies, df_ratings)
+        user_list = getUserList(args, df_movies, df_ratings)
         graph.add_nodes_from(user_list)
         relation_list = getRelationList(args, graph, df_movies, df_ratings)
 
-        # initiate graph
-        # graph = nx.Graph()
-        # graph.add_nodes_from(movie_list)
-        # graph.add_nodes_from(user_list)
         graph.add_edges_from(relation_list)
         largest_cc = max(nx.connected_components(graph), key=len)
         largest_graph = graph.subgraph(largest_cc)
         graph = nx.relabel.convert_node_labels_to_integers(
             largest_graph, first_label=0, ordering="default"
         )
+    elif args.dataset == "citation":
+        if not os.path.isfile(
+            "/Users/wangyun/Documents/GitHub/GraphHT/datasets/citation/graph.pickle"
+        ):
+            df_paper_author = pd.read_csv(
+                "/Users/wangyun/Documents/GitHub/GraphHT/datasets/citation/paper_author.csv"
+            )
+            df_paper_paper = pd.read_csv(
+                "/Users/wangyun/Documents/GitHub/GraphHT/datasets/citation/paper_paper.csv"
+            )
+            paper_list = getPaperList(args, df_paper_author)
+            graph = nx.Graph()
+            graph.add_nodes_from(paper_list)
+            author_list = getAuthorList(args, df_paper_author)
+            graph.add_nodes_from(author_list)
+            assert graph.number_of_nodes() == (
+                len(df_paper_author.authorId.unique()) + len(paper_list)
+            ), f"number of nodes != unique author + unique paper"
+
+            author_paper_relation_list, paper_paper_relation_list = getRelationLists(
+                args, graph, df_paper_author, df_paper_paper
+            )
+
+            graph.add_edges_from(author_paper_relation_list)
+            graph.add_edges_from(paper_paper_relation_list)
+
+            largest_cc = max(nx.connected_components(graph), key=len)
+            largest_graph = graph.subgraph(largest_cc)
+            graph = nx.relabel.convert_node_labels_to_integers(
+                largest_graph, first_label=0, ordering="default"
+            )
+        else:
+            print("loading dataset.")
+            graph = pickle.load(
+                open(
+                    "/Users/wangyun/Documents/GitHub/GraphHT/datasets/citation/graph.pickle",
+                    "rb",
+                )
+            )
+    else:
+        raise Exception(f"We dont support {args.dataset}")
+
     args.num_nodes = graph.number_of_nodes()
     args.num_edges = graph.number_of_edges()
     args.logger.info(f"{args.dataset} has {args.num_nodes} nodes.")

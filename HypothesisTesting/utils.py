@@ -26,15 +26,21 @@ def clean():
 
 def logger(args):
     # Create and configure logger
+    args.log_folderPath = os.path.join(
+        os.path.dirname(os.path.realpath(__file__)),
+        "log_and_results_" + str(args.attribute[0]),
+    )
     if args.sampling_method == "SpikyBallS":
         if args.sampling_mode is None:
+            args.logger.error(
+                "The sampling_mode must be provided for sampling_method SpikyBallS."
+            )
             raise Exception(
                 "The sampling_mode must be provided for sampling_method SpikyBallS."
             )
         else:
             log_filepath = os.path.join(
-                os.path.dirname(os.path.realpath(__file__)),
-                "log_and_results_" + args.attribute[0],
+                args.log_folderPath,
                 args.dataset
                 + "_"
                 + args.sampling_method
@@ -48,8 +54,7 @@ def logger(args):
             )
     else:
         log_filepath = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "log_and_results_" + args.attribute[0],
+            args.log_folderPath,
             args.dataset
             + "_"
             + args.sampling_method
@@ -59,6 +64,10 @@ def logger(args):
             + str(args.file_num)
             + "_log.log",
         )
+
+    if not os.path.exists(args.log_folderPath):
+        os.makedirs(args.log_folderPath)
+
     logging.basicConfig(
         filename=log_filepath, format="%(asctime)s %(message)s", filemode="w"
     )
@@ -85,8 +94,7 @@ def drawAllRatings(args, rating_summary):
     plt.title(f"average rating ({args.dataset}) - {args.sampling_method}")
     if args.sampling_method == "SpikyBallS":
         args.fig_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "log_and_results_" + args.attribute[0],
+            args.log_folderPath,
             args.dataset
             + "_"
             + args.sampling_method
@@ -100,8 +108,7 @@ def drawAllRatings(args, rating_summary):
         )
     else:
         args.fig_path = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "log_and_results_" + args.attribute[0],
+            args.log_folderPath,
             args.dataset
             + "_"
             + args.sampling_method
@@ -114,35 +121,36 @@ def drawAllRatings(args, rating_summary):
     plt.savefig(args.fig_path)
 
 
-# def drawAvgRating(args, avg_rating):
-#     plt.plot([args.ground_truth_avg] * 50, label=f"true avg rating")
-#     plt.plot(avg_rating, label=f"avg rating ({args.ratio})")
-#     plt.xlabel("i-th sampled subgraph")
-#     plt.ylabel("average rating")
-#     plt.legend()
-#     plt.title(f"average rating ({args.dataset}) - {args.sampling_method} {args.ratio}")
-#     if args.sampling_method == "SpikyBallS":
-#         args.fig_path = os.path.join(
-#             os.path.dirname(os.path.realpath(__file__)),
-#             "log_and_results_" + args.attribute[0],
-#             args.dataset
-#             + "_"
-#             + args.sampling_method
-#             + "_"
-#             + args.sampling_mode
-#             + "_"
-#             + str(args.file_num)
-#             + "_fig.png",
-#         )
-#     else:
-#         args.fig_path = os.path.join(
-#             os.path.dirname(os.path.realpath(__file__)),
-#             "log_and_results_" + args.attribute[0],
-#             args.dataset
-#             + "_"
-#             + args.sampling_method
-#             + "_"
-#             + str(args.file_num)
-#             + "_fig.png",
-#         )
-#     plt.savefig(args.fig_path)
+def print_hypo_log(args, t_stat, p_value, H0, **kwargs):
+    args.logger.info("")
+    args.logger.info("[Hypothesis Testing Results]")
+    assert len(kwargs) == 1, f"Only one kwargs is allowed! eg twoSide or oneSide"
+    for key, value in kwargs.items():
+        if key == "twoSides":
+            args.logger.info(f"H0: {H0} == {args.ground_truth}.")
+            args.logger.info(f"H1: {H0} != {args.ground_truth}.")
+        elif key == "oneSide":
+            if value == "lower":
+                args.logger.info(f"H0: {H0} = {args.popmean_lower}.")
+                args.logger.info(f"H1: {H0} > {args.popmean_lower}.")
+            elif value == "higher":
+                args.logger.info(f"H0: {H0} = {args.popmean_higher}.")
+                args.logger.info(f"H1: {H0} < {args.popmean_higher}.")
+            else:
+                args.logging.error(f"Sorry, we don't support {value} for {key}.")
+                raise Exception(f"Sorry, we don't support {value} for {key}.")
+        else:
+            args.logging.error(f"Sorry, we don't support {key}.")
+            raise Exception(f"Sorry, we don't support {key}.")
+
+    args.logger.info(f"T-statistic value: {t_stat}, P-value: {p_value}.")
+    if p_value < 0.05:
+        args.logger.info(
+            f"The test is significant, we shall reject the null hypothesis."
+        )
+    else:
+        args.logger.info(
+            f"The test is NOT significant, we shall accept the null hypothesis."
+        )
+
+    return 0

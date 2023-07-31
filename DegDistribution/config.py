@@ -5,7 +5,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
     # SRW, CNARW
     parser.add_argument(
         "--sampling_method", type=str, default="RES_Induction", help="sampling method."
@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument(
         "--ratio_list",
         type=list,
-        default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.6, 0.8],
+        default=[0.2, 0.4, 0.6, 0.8],
         help="sampling size list.",
     )  # default [0.1,0.15,0.2,0.25,0.3,0.4,0.6,0.8]
     parser.add_argument(

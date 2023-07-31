@@ -1,5 +1,5 @@
 import os
-import re
+import time
 from collections import defaultdict
 
 import networkx as nx
@@ -7,10 +7,18 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 from config import parse_args
+from dataprep.citation_prep import citation_prep
+from dataprep.movielens_prep import movielens_prep, moviePreprocess
+from new_graph_hypo_postprocess import new_graph_hypo_result
 from scipy.stats import ttest_1samp
-from utils import clean, drawAllRatings, logger, setup_device, setup_seed
-
-# only undirected and unweighted graph
+from utils import (
+    clean,
+    drawAllRatings,
+    logger,
+    print_hypo_log,
+    setup_device,
+    setup_seed,
+)
 
 
 def main():
@@ -20,38 +28,49 @@ def main():
     setup_device(args)
     logger(args)
 
-    # get the original graph
-    if args.dataset == "movielens":
-        df_movies = pd.read_csv(
-            "/Users/wangyun/Documents/GitHub/GraphHT/datasets/ml-latest-small/movies.csv"
-        )
-        df_ratings = pd.read_csv(
-            "/Users/wangyun/Documents/GitHub/GraphHT/datasets/ml-latest-small/ratings.csv"
-        )
-        # df_tags = pd.read_csv(
-        #     "/Users/wangyun/Documents/GitHub/GraphHT/datasets/ml-latest-small/tags.csv"
-        # )
-        df_movies = moviePreprocess(df_movies)
-        movie_list = getMovieList(args, df_movies)
-        graph = nx.Graph()
-        graph.add_nodes_from(movie_list)
-        user_list = getUserList(df_movies, df_ratings)
-        graph.add_nodes_from(user_list)
-        relation_list = getRelationList(args, graph, df_movies, df_ratings)
+    # global info of this run
+    args.logger.info(f"Dataset: {args.dataset}")
+    args.logger.info(f"Sampling Method: {args.sampling_method}")
+    args.logger.info(f"Sampling Ratio: {args.sampling_ratio}")
+    args.logger.info(f"Attribute: {args.attribute}")
+    args.logger.info(f"Aggregation Method: {args.agg}")
+    args.logger.info(f"=========== Start Running ===========")
 
-        # initiate graph
-        # graph = nx.Graph()
-        # graph.add_nodes_from(movie_list)
-        # graph.add_nodes_from(user_list)
-        graph.add_edges_from(relation_list)
-        largest_cc = max(nx.connected_components(graph), key=len)
-        largest_graph = graph.subgraph(largest_cc)
-        graph = nx.relabel.convert_node_labels_to_integers(
-            largest_graph, first_label=0, ordering="default"
+    # get the graph
+    time_dataset_prep = time.time()
+    args.dataset_path = os.path.join(os.getcwd(), "datasets", args.dataset)
+    if args.dataset == "movielens":
+        assert (
+            len(args.attribute) == 1
+        ), f"Only one movie genre attribute is required for {args.dataset}."
+
+        df_movies = pd.read_csv(os.path.join(args.dataset_path, "movies.csv"))
+        df_ratings = pd.read_csv(os.path.join(args.dataset_path, "ratings.csv"))
+        df_movies = moviePreprocess(df_movies)
+        graph = movielens_prep(args, df_movies, df_ratings)
+
+    elif args.dataset == "citation":
+        assert (
+            len(args.attribute) == 1
+        ), f"Only one year attribute is required for {args.dataset}."
+        args.attribute = args.attribute[0]
+
+        df_paper_author = pd.read_csv(
+            os.path.join(args.dataset_path, "paper_author.csv")
         )
+        df_paper_paper = pd.read_csv(os.path.join(args.dataset_path, "paper_paper.csv"))
+        graph = citation_prep(args, df_paper_author, df_paper_paper)
 
     else:
+        args.logger.error(f"Sorry, we don't support {args.dataset}.")
         raise Exception(f"Sorry, we don't support {args.dataset}.")
+
+    print(
+        f">>> Total time for dataset {args.dataset} preperation is {round((time.time() - time_dataset_prep),2)}."
+    )
+    args.logger.info(
+        f">>> Total time for dataset {args.dataset} preperation is {round((time.time() - time_dataset_prep),2)}."
+    )
 
     # print graph characteristics
     args.num_nodes = graph.number_of_nodes()
@@ -60,67 +79,120 @@ def main():
         f"{args.dataset} has {args.num_nodes} nodes and {args.num_edges} edges."
     )
     args.logger.info(f"{args.dataset} is connected: {nx.is_connected(graph)}.")
-    args.ground_truth = getGroundTruth(args, df_movies, df_ratings)
+
+    # prepare ground truths and population mean for one-side hypothesis testings
+    if args.dataset == "movielens":
+        args.ground_truth = getGroundTruth(
+            args, df_movies=df_movies, df_ratings=df_ratings
+        )
+    elif args.dataset == "citation":
+        args.ground_truth = getGroundTruth(args, df_paper_author=df_paper_author)
     args.CI = []
     args.popmean_lower = round(args.ground_truth - 0.05, 2)
     args.popmean_higher = round(args.ground_truth + 0.05, 2)
+
+    # sample for each sampling ratio
     args.result = defaultdict(list)
+    time_ratio_start = time.time()
     for ratio in args.sampling_ratio:
         args.ratio = ratio
         args.logger.info(" ")
         args.logger.info(f">>> sampling ratio: {args.ratio}")
         result_list = samplingGraph(args, graph)
+
+        total_time = time.time() - time_ratio_start
+        total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
+        print(
+            f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+        )
+        args.logger.info(
+            f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+        )
         args.result[ratio] = result_list
+
         testHypothesis(args, result_list)
         args.logger.info(
             f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
         )
+
     drawAllRatings(args, args.result)
     print(
         f"All hypothesis testing for ratio list {args.sampling_ratio} and ploting is finished!"
     )
 
 
-def getGroundTruth(args, df_movies, df_ratings):
-    if (args.attribute is not None) and (len(args.attribute) == 1):
-        movie = df_movies.loc[:, ["movieId"] + args.attribute]
-        df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
-        # args.logger.info(df_ratings[df_ratings.loc[:, args.attribute] == 1].shape)
-        attribute = args.attribute[0]
-        rating = df_ratings[df_ratings[attribute] == 1].rating.values
-        # rating = df_.rating.values()
-        # for i in args.attribute:
-        #     df_ = df_ratings[df_ratings[i] == 1]
-    else:
-        raise Exception(f"Sorry, args.attribute is None or len(args.attribute) != 1.")
+def getGroundTruth(args, **kwargs):
+    if args.dataset == "movielens":
+        assert len(kwargs) == 2, f"{args.dataset} requires df_movies and df_ratings."
+
+        df_movies = kwargs["df_movies"]
+        df_ratings = kwargs["df_ratings"]
+
+        if (args.attribute is not None) and (len(args.attribute) == 1):
+            movie = df_movies.loc[:, ["movieId"] + args.attribute]
+            df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
+            attribute = args.attribute[0]
+            list_result = df_ratings[df_ratings[attribute] == 1].rating.values.tolist()
+        else:
+            args.logger.error(
+                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            )
+
+            raise Exception(
+                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            )
+
+    elif args.dataset == "citation":
+        assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
+
+        df_paper_author = kwargs["df_paper_author"]
+
+        if args.attribute is not None:
+            df_paper_author = df_paper_author[df_paper_author.year == args.attribute]
+            df = df_paper_author.groupby("paperTitle").count()
+            list_result = df.author.values.tolist()
+        else:
+            args.logger.error(f"Sorry, args.attribute is None.")
+            raise Exception(f"Sorry, args.attribute is None.")
+
+    if len(list_result) == 0:
+        args.logger.error(
+            f"The graph contains no node/edge satisfying the hypothesis, you may need to change the attribute."
+        )
+        raise Exception(
+            f"The graph contains no node/edge satisfying the hypothesis, you may need to change the attribute."
+        )
 
     # check aggregation method
     if args.agg == "mean":
-        ground_truth = sum(rating) / rating.shape[0]
+        ground_truth = sum(list_result) / len(list_result)
     elif args.agg == "max":
-        ground_truth = max(rating)
+        ground_truth = max(list_result)
     elif args.agg == "min":
-        ground_truth = min(rating)
+        ground_truth = min(list_result)
     else:
+        args.logger.error(f"Sorry, we don't support {args.agg}.")
         raise Exception(f"Sorry, we don't support {args.agg}.")
 
-    args.logger.info(f"The ground truth rating is {round(ground_truth,2)}.")
+    args.logger.info(f"The ground truth is {round(ground_truth,2)}.")
     return ground_truth
 
 
-def testHypothesis(args, result_list):
-    # test H1: avg rating = popmean
+def testHypothesis(args, result_list, verbose=1):
+    time_start_HT = time.time()
+
+    #################################
+    # test H1: avg rating = popmean #
+    #################################
+
     t_stat, p_value = ttest_1samp(
         result_list, popmean=args.ground_truth, alternative="two-sided"
     )
-    args.logger.info("====================")
-    args.logger.info(
-        f"H0: {args.agg} rating of {args.attribute} users = {args.ground_truth}."
-    )
-    args.logger.info(
-        f"H1: {args.agg} rating of {args.attribute} users != {args.ground_truth}."
-    )
-    args.logger.info(f"T-statistic value: {t_stat}, P-value: {p_value}.")
+    H0 = f"{args.agg} rating of {args.attribute} users"
+
+    if verbose == 1:
+        print_hypo_log(args, t_stat, p_value, H0, twoSides=True)
+
     CI = st.t.interval(
         confidence=0.95,
         df=len(result_list) - 1,
@@ -129,314 +201,199 @@ def testHypothesis(args, result_list):
     )
     args.CI.append(CI)
     args.logger.info(CI)
-    if p_value < 0.05:
-        args.logger.info(
-            f"The test is significant, we shall reject the null hypothesis."
-        )
-        args.logger.info(f"Population {args.agg} != {args.ground_truth}.")
-    else:
-        args.logger.info(
-            f"The test is NOT significant, we shall accept the null hypothesis."
-        )
-        args.logger.info(f"Population {args.agg} == {args.ground_truth}.")
 
-    # test H1: avg rating > popmean_lower
+    #######################################
+    # test H1: avg rating > popmean_lower #
+    #######################################
+
+    H0 = f"{args.agg} rating of {args.attribute} users"
     t_stat, p_value = ttest_1samp(
         result_list, popmean=args.popmean_lower, alternative="greater"
     )
-    args.logger.info("====================")
-    args.logger.info(
-        f"H0: {args.agg} rating of {args.attribute} users = {args.popmean_lower}."
-    )
-    args.logger.info(
-        f"H1: {args.agg} rating of {args.attribute} users > {args.popmean_lower}."
-    )
-    args.logger.info(f"T-statistic value: {t_stat}, P-value: {p_value}.")
-    if p_value < 0.05:
-        args.logger.info(
-            f"The test is significant, we shall reject the null hypothesis."
-        )
-        args.logger.info(f"Population {args.agg} > {args.popmean_lower}.")
-    else:
-        args.logger.info(
-            f"The test is NOT significant, we shall accept the null hypothesis."
-        )
-        args.logger.info(
-            f"Population {args.agg} is NO larger than {args.popmean_lower}."
-        )
+    if verbose == 1:
+        print_hypo_log(args, t_stat, p_value, H0, oneSide="lower")
 
-    # test H1: avg rating < popmean_higher
+    ########################################
+    # test H1: avg rating < popmean_higher #
+    ########################################
+
+    H0 = f"{args.agg} rating of {args.attribute} users"
     t_stat, p_value = ttest_1samp(
         result_list, popmean=args.popmean_higher, alternative="less"
     )
-    args.logger.info("====================")
+    if verbose == 1:
+        print_hypo_log(args, t_stat, p_value, H0, oneSide="higher")
+
+    print(f">>> Time for hypothesis testing is {round(time.time()-time_start_HT,5)}.")
     args.logger.info(
-        f"H0: {args.agg} rating of {args.attribute} users = {args.popmean_higher}."
+        f">>> Time for hypothesis testing is {round(time.time()-time_start_HT,5)}."
     )
-    args.logger.info(
-        f"H1: {args.agg} rating of {args.attribute} users < {args.popmean_higher}."
-    )
-    args.logger.info(f"T-statistic value: {t_stat}, P-value: {p_value}.")
-    if p_value < 0.05:
-        args.logger.info(
-            f"The test is significant, we shall reject the null hypothesis."
-        )
-        args.logger.info(f"Population {args.agg} < {args.popmean_higher}.")
-    else:
-        args.logger.info(
-            f"The test is NOT significant, we shall accept the null hypothesis."
-        )
-        args.logger.info(
-            f"Population {args.agg} is NO smaller than {args.popmean_higher}."
-        )
 
 
 def samplingGraph(args, graph):
+    # time_sampling_graph_start = time.time()
     result_list = []
+    time_used = defaultdict(list)
     if args.sampling_method == "RNNS":
         from littleballoffur import RandomNodeNeighborSampler
 
         for num_sample in range(args.num_samples):
+            time_one_sample_start = time.time()
             model = RandomNodeNeighborSampler(
                 number_of_nodes=int(args.num_nodes * args.ratio),
                 seed=(int(args.seed) * num_sample),
             )
             new_graph = model.sample(graph)
-            rating_dict = nx.get_edge_attributes(new_graph, name="rating")
-            rating = getRatings(args, new_graph, rating_dict)
-            result_list.append(rating)
-            args.logger.info(f"sample {num_sample}: {args.agg} rating is {rating}.")
+            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+
+            time_rating_extraction_start = time.time()
+            result_list = new_graph_hypo_result(
+                args, new_graph, result_list, num_sample
+            )
+            time_used["rating_extraction"].append(
+                round(time.time() - time_rating_extraction_start, 2)
+            )
+
     elif args.sampling_method == "SRW":
         from littleballoffur import RandomWalkSampler
 
         for num_sample in range(args.num_samples):
+            time_one_sample_start = time.time()
             model = RandomWalkSampler(
                 number_of_nodes=int(args.num_nodes * args.ratio),
                 seed=(int(args.seed) * num_sample),
             )
             new_graph = model.sample(graph)
-            rating_dict = nx.get_edge_attributes(new_graph, name="rating")
-            rating = getRatings(args, new_graph, rating_dict)
-            result_list.append(rating)
-            args.logger.info(f"sample {num_sample}: {args.agg} rating is {rating}.")
+            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+
+            time_rating_extraction_start = time.time()
+            result_list = new_graph_hypo_result(
+                args, new_graph, result_list, num_sample
+            )
+            time_used["rating_extraction"].append(
+                round(time.time() - time_rating_extraction_start, 2)
+            )
+
     elif args.sampling_method == "ShortestPathS":
         from littleballoffur import ShortestPathSampler
 
         for num_sample in range(args.num_samples):
+            time_one_sample_start = time.time()
             model = ShortestPathSampler(
                 number_of_nodes=int(args.num_nodes * args.ratio),
                 seed=(int(args.seed) * num_sample),
             )
             new_graph = model.sample(graph)
-            rating_dict = nx.get_edge_attributes(new_graph, name="rating")
-            rating = getRatings(args, new_graph, rating_dict)
-            result_list.append(rating)
-            args.logger.info(f"sample {num_sample}: {args.agg} rating is {rating}.")
+            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+
+            time_rating_extraction_start = time.time()
+            result_list = new_graph_hypo_result(
+                args, new_graph, result_list, num_sample
+            )
+            time_used["rating_extraction"].append(
+                round(time.time() - time_rating_extraction_start, 2)
+            )
     elif args.sampling_method == "MHRS":
         from littleballoffur import MetropolisHastingsRandomWalkSampler
 
         for num_sample in range(args.num_samples):
+            time_one_sample_start = time.time()
             model = MetropolisHastingsRandomWalkSampler(
                 number_of_nodes=int(args.num_nodes * args.ratio),
                 seed=(int(args.seed) * num_sample),
             )
             new_graph = model.sample(graph)
-            rating_dict = nx.get_edge_attributes(new_graph, name="rating")
-            rating = getRatings(args, new_graph, rating_dict)
-            result_list.append(rating)
-            args.logger.info(f"sample {num_sample}: {args.agg} rating is {rating}.")
+            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+
+            time_rating_extraction_start = time.time()
+            result_list = new_graph_hypo_result(
+                args, new_graph, result_list, num_sample
+            )
+            time_used["rating_extraction"].append(
+                round(time.time() - time_rating_extraction_start, 2)
+            )
     elif args.sampling_method == "CommunitySES":
         from littleballoffur import CommunityStructureExpansionSampler
 
         for num_sample in range(args.num_samples):
+            time_one_sample_start = time.time()
             model = CommunityStructureExpansionSampler(
                 number_of_nodes=int(args.num_nodes * args.ratio),
                 seed=(int(args.seed) * num_sample),
             )
             new_graph = model.sample(graph)
-            rating_dict = nx.get_edge_attributes(new_graph, name="rating")
-            rating = getRatings(args, new_graph, rating_dict)
-            result_list.append(rating)
-            args.logger.info(f"sample {num_sample}: {args.agg} rating is {rating}.")
+            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+
+            time_rating_extraction_start = time.time()
+            result_list = new_graph_hypo_result(
+                args, new_graph, result_list, num_sample
+            )
+            time_used["rating_extraction"].append(
+                round(time.time() - time_rating_extraction_start, 2)
+            )
     else:
+        args.logger.error(f"Sorry, we don't support {args.sampling_method}.")
         raise Exception(f"Sorry, we don't support {args.sampling_method}.")
-    # drawAvgRating(args, avg_rating)
+
+    time_one_sample = sum(time_used["sampling"]) / len(time_used["sampling"])
+    print(
+        f">>> Avg time for sampling {args.sampling_method} at {args.ratio} sampling ratio one time is {round(time_one_sample,2)}."
+    )
+    args.logger.info(
+        f">>> Avg time for sampling {args.sampling_method} at {args.ratio} sampling ratio one time is {round(time_one_sample,2)}."
+    )
+    time_rating_extraction = sum(time_used["rating_extraction"]) / len(
+        time_used["rating_extraction"]
+    )
+    print(
+        f">>> Avg time for edge rating extraction at {args.ratio} sampling ratio one time is {round(time_rating_extraction,5)}."
+    )
+    args.logger.info(
+        f">>> Avg time for  edge rating extraction at {args.ratio} sampling ratio one time is {round(time_rating_extraction,5)}."
+    )
     return result_list
 
 
-def getRatings(args, new_graph, rating_dict):
-    total_rating = []
-    for key, value in rating_dict.items():
-        from_node, to_node = key
-        # print(from_node, to_node)
-        if new_graph.nodes[from_node]["label"] == "movie":
-            # print("from")
-            if new_graph.nodes[from_node][args.attribute[0]] == 1:
-                total_rating.append(value)
-        elif new_graph.nodes[to_node]["label"] == "movie":
-            # print("to")
-            if new_graph.nodes[to_node][args.attribute[0]] == 1:
-                total_rating.append(value)
-
-    if len(total_rating) == 0:
-        total_rating.append(0)
-
-    if args.agg == "mean":
-        result = sum(total_rating) / len(total_rating)
-    elif args.agg == "max":
-        result = max(total_rating)
-    elif args.agg == "min":
-        result = min(total_rating)
-    else:
-        raise Exception(f"Sorry, we don't support {args.agg}.")
-    return result
-    # avg_rating.append(avg)
-    # print(avg)
+# def new_graph_hypo_result(args, new_graph, result_list, num_sample):
+#     rating_dict = nx.get_edge_attributes(new_graph, name="rating")
+#     if args.dataset == "movielens":
+#         result = getRatings(args, new_graph, rating_dict)
+#         args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
+#     elif args.dataset == "citation":
+#         result = getAuthors(args, new_graph, rating_dict)
+#         args.logger.info(
+#             f"sample {num_sample}: {args.agg} number of author is {result}."
+#         )
+#     result_list.append(result)
+#     return result_list
 
 
-def getMovieList(args, df_movies):
-    attr_index = -1
-    for col_name in df_movies.columns:
-        attr_index += 1
-        if col_name == args.attribute[0]:
-            break
+# def getRatings(args, new_graph, rating_dict):
+#     total_rating = []
+#     for key, value in rating_dict.items():
+#         from_node, to_node = key
+#         # print(from_node, to_node)
+#         if new_graph.nodes[from_node]["label"] == "movie":
+#             # print("from")
+#             if new_graph.nodes[from_node][args.attribute[0]] == 1:
+#                 total_rating.append(value)
+#         elif new_graph.nodes[to_node]["label"] == "movie":
+#             # print("to")
+#             if new_graph.nodes[to_node][args.attribute[0]] == 1:
+#                 total_rating.append(value)
 
-    movie_list = []
-    for _, row in df_movies.iterrows():
-        node_attribute = {}
-        node_attribute["label"] = "movie"
-        node_attribute["title"] = row[1]
-        node_attribute[args.attribute[0]] = row[attr_index]
-        node_name = "movie" + str(row[0])
-        movie_list.append((node_name, node_attribute))
+#     if len(total_rating) == 0:
+#         total_rating.append(0)
 
-    return movie_list
-
-
-def getUserList(df_movies, df_ratings):
-    movie = df_movies.movieId
-    df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
-    user_list = []
-    for i in df_ratings.userId.unique():
-        node_attribute = {}
-        node_attribute["label"] = "user"
-        # node_attribute['title'] = row[1]
-        node_name = "user" + str(int(i))
-        user_list.append((node_name, node_attribute))
-
-    return user_list
-
-
-def getRelationList(args, graph, df_movies, df_ratings):
-    movie = df_movies.movieId
-    movie = df_movies.loc[:, ["movieId"] + args.attribute]
-    df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
-
-    user_index = -1
-    for col_name in df_ratings.columns:
-        user_index += 1
-        if col_name == "userId":
-            break
-    movie_index = -1
-    for col_name in df_ratings.columns:
-        movie_index += 1
-        if col_name == "movieId":
-            break
-    attr_index = -1
-    for col_name in df_ratings.columns:
-        attr_index += 1
-        if col_name == "rating":
-            break
-
-    relation_list = []
-    for _, row in df_ratings.iterrows():
-        from_node = "user" + str(int(row[user_index]))
-        assert from_node in graph.nodes(), f"{from_node} is not in g"
-        to_node = "movie" + str(int(row[movie_index]))
-        assert to_node in graph.nodes(), f"{to_node} is not in g"
-        edge_attribute = {}
-        edge_attribute["rating"] = row[attr_index]
-        relation_list.append((from_node, to_node, edge_attribute))
-    return relation_list
-
-
-def moviePreprocess(df_movies):
-    movies_df_mod = df_movies.copy()
-
-    movies_df_mod["Year"] = 0
-    # movies_df_mod['UPPER_STD'] = 0
-    # movies_df_mod['LOWER_STD'] = 0
-    # movies_df_mod['AVG_RATING'] = 0
-    # movies_df_mod['VIEW_COUNT'] = 0
-
-    # Making the genres into columns:
-    ## First, need to obtain a list of all the genres in the dataset.
-    #### !!!! Note: "IMAX" is not listed in the readme but is present in the dataset. "Children's" in the readme is "Children" in the dataset.
-    genres_list = []
-    for index, row in df_movies.iterrows():
-        try:
-            genres = row.genres.split("|")
-            genres_list.extend(genres)
-        except:
-            genres_list.append(row.genres)
-
-    genres_list = list(set(genres_list))
-    genres_list.remove("IMAX")
-    genres_list.remove("(no genres listed)")  # Replace with 'None'
-    genres_list.append("None")
-    for genre in genres_list:  # Creating new columns with names as genres
-        movies_df_mod[genre] = 0  # 0 = movie is not considered in that genre
-
-    for index, row in movies_df_mod.iterrows():
-        # movieId = row.movieId
-        title = row.title
-
-        try:
-            genres = row.genres.split(
-                "|"
-            )  ## Multiple genres for the movie is separated by '|' in the one string; converts to list
-        except Exception:
-            genres = list(
-                row.genres
-            )  ## In the case that there is only one genre for the movie
-
-        # print(index)
-
-        # Extracting the year from the title:
-        try:  ## Some titles do not have the year--these will be removed downstream to remove the need to access the IMDB API (http://www.omdbapi.com/)
-            matcher = re.compile(
-                "\(\d{4}\)"
-            )  ## Need to extract '(year)' from the title in case there is a year in the title
-            parenthesis_year = matcher.search(title).group(0)
-            matcher = re.compile(
-                "\d{4}"
-            )  ## Matching the year from the already matched '(year)'
-            year = matcher.search(parenthesis_year).group(0)
-
-            movies_df_mod.loc[index, "Year"] = int(year)
-
-        except Exception:
-            pass
-
-        # Changing all columns that are labelled as genres to 1 if the movie is in that genre:
-        if "IMAX" in genres:
-            genres.remove("IMAX")
-
-        if "(no genres listed)" in genres:
-            genres.remove("(no genres listed)")
-            genres.append("None")
-
-        for genre in genres:
-            movies_df_mod.loc[index, genre] = 1
-
-    movies_df_mod = movies_df_mod[
-        movies_df_mod.Year != 0
-    ]  ## Removing all movies without years in the title
-    movies_df_mod["title"] = movies_df_mod["title"].str.split("(", expand=True)[0]
-    movies_df_mod["title"] = movies_df_mod["title"].str[:-1]
-    movies_df_mod = movies_df_mod.drop(["genres"], axis=1)
-    movies_df_mod.head()
-    return movies_df_mod
+#     if args.agg == "mean":
+#         result = sum(total_rating) / len(total_rating)
+#     elif args.agg == "max":
+#         result = max(total_rating)
+#     elif args.agg == "min":
+#         result = min(total_rating)
+#     else:
+#         raise Exception(f"Sorry, we don't support {args.agg}.")
+#     return result
 
 
 if __name__ == "__main__":

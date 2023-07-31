@@ -1,5 +1,6 @@
 # Byte-compiled / optimized / DLL files
 datasets/
+HypothesisTesting_citation/
 __pycache__/
 shit.py
 *.sh
@@ -11,10 +12,11 @@ citation.py
 
 # Distribution / packaging
 .Python
-Diameter/__pycache__/
-Density/__pycache__/
-DegDistribution/__pycache__/
-CCDistribution/__pycache__/
+*/__pycache__/
+# Diameter/__pycache__/
+# Density/__pycache__/
+# DegDistribution/__pycache__/
+# CCDistribution/__pycache__/
 */log_and_results*/
 
 # Unit test / coverage reports

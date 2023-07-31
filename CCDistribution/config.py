@@ -6,7 +6,7 @@ def parse_args():
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
     parser.add_argument(
-        "--dataset", type=str, default="movielens", help="dataset."
+        "--dataset", type=str, default="citation", help="dataset."
     )  # facebook, ca_GrQc
     parser.add_argument(
         "--bins", type=int, default=100, help="num of bins for getting cc dist."
@@ -38,7 +38,7 @@ def parse_args():
     parser.add_argument(
         "--ratio_list",
         type=list,
-        default=[0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.6, 0.8],
+        default=[0.1, 0.2, 0.3, 0.4, 0.6, 0.8],
         help="sampling size list.",
     )  # default [0.1,0.15,0.2,0.25,0.3,0.4,0.6,0.8]
     parser.add_argument(
