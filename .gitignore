@@ -5,6 +5,7 @@ __pycache__/
 shit.py
 *.sh
 *.csv
+.vscode/
 ca-GrQc.txt
 outputacm.txt
 citation.py

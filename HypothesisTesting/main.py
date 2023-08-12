@@ -1,4 +1,5 @@
 import os
+import statistics
 import time
 from collections import defaultdict
 
@@ -9,7 +10,24 @@ import scipy.stats as st
 from config import parse_args
 from dataprep.citation_prep import citation_prep
 from dataprep.movielens_prep import movielens_prep, moviePreprocess
-from new_graph_hypo_postprocess import new_graph_hypo_result
+from sampling import (
+    CNARW,
+    FFS,
+    MHRWS,
+    NBRW,
+    RES,
+    RNES,
+    RNNS,
+    SBS,
+    SRW,
+    CommunitySES,
+    FrontierS,
+    RES_Induction,
+    RW_Starter,
+    ShortestPathS,
+)
+
+# from new_graph_hypo_postprocess import new_graph_hypo_result
 from scipy.stats import ttest_1samp
 from utils import (
     clean,
@@ -83,23 +101,25 @@ def main():
     # prepare ground truths and population mean for one-side hypothesis testings
     if args.dataset == "movielens":
         args.ground_truth = getGroundTruth(
-            args, df_movies=df_movies, df_ratings=df_ratings
+            args, graph, df_movies=df_movies, df_ratings=df_ratings
         )
     elif args.dataset == "citation":
-        args.ground_truth = getGroundTruth(args, df_paper_author=df_paper_author)
+        args.ground_truth = getGroundTruth(args, graph, df_paper_author=df_paper_author)
     args.CI = []
     args.popmean_lower = round(args.ground_truth - 0.05, 2)
     args.popmean_higher = round(args.ground_truth + 0.05, 2)
 
     # sample for each sampling ratio
     args.result = defaultdict(list)
-    time_ratio_start = time.time()
+    args.time_result = defaultdict(list)
     for ratio in args.sampling_ratio:
+        time_ratio_start = time.time()
         args.ratio = ratio
         args.logger.info(" ")
         args.logger.info(f">>> sampling ratio: {args.ratio}")
         result_list = samplingGraph(args, graph)
 
+        # print total time used
         total_time = time.time() - time_ratio_start
         total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
         print(
@@ -108,6 +128,21 @@ def main():
         args.logger.info(
             f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
         )
+
+        # print percentage error w.r.t. the ground truth
+        percent_error = (
+            100
+            * abs((sum(result_list) / len(result_list)) - args.ground_truth)
+            / args.ground_truth
+        )
+        print(
+            f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+        )
+        args.logger.info(
+            f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+        )
+        args.time_result[args.ratio].append(round(percent_error, 2))
+
         args.result[ratio] = result_list
 
         testHypothesis(args, result_list)
@@ -116,44 +151,98 @@ def main():
         )
 
     drawAllRatings(args, args.result)
+
+    headers = [
+        "Sampling time",
+        "Target extraction time",
+        "Percentage error",
+        "HT time",
+    ]
+
+    print(
+        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[2].capitalize():<25}"
+    )
+    args.logger.info(
+        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[2].capitalize():<25}"
+    )
+
+    # Id        Name           Age
+    # 1         alice          29
+    # 2         bobbyhadz      30
+    # 3         carl           31
+    for _, value in args.time_result.items():
+        # print(value)
+        print(f"{value[0]: <25}{value[1]: <25}{value[2]:<25}{value[3]:<25}")
+        args.logger.info(f"{value[0]: <25}{value[1]: <25}{value[2]:<25}{value[3]:<25}")
     print(
         f"All hypothesis testing for ratio list {args.sampling_ratio} and ploting is finished!"
     )
 
 
-def getGroundTruth(args, **kwargs):
+def getGroundTruth(args, graph, **kwargs):
     if args.dataset == "movielens":
-        assert len(kwargs) == 2, f"{args.dataset} requires df_movies and df_ratings."
+        if args.hypo == 1 or args.hypo == 2:
+            assert (
+                len(kwargs) == 2
+            ), f"{args.dataset} requires df_movies and df_ratings."
 
-        df_movies = kwargs["df_movies"]
-        df_ratings = kwargs["df_ratings"]
+            df_movies = kwargs["df_movies"]
+            df_ratings = kwargs["df_ratings"]
 
-        if (args.attribute is not None) and (len(args.attribute) == 1):
-            movie = df_movies.loc[:, ["movieId"] + args.attribute]
-            df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
-            attribute = args.attribute[0]
-            list_result = df_ratings[df_ratings[attribute] == 1].rating.values.tolist()
+            if (args.attribute is not None) and (len(args.attribute) == 1):
+                movie = df_movies.loc[:, ["movieId"] + args.attribute]
+                df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
+                attribute = args.attribute[0]
+                list_result = df_ratings[
+                    df_ratings[attribute] == 1
+                ].rating.values.tolist()
+            else:
+                args.logger.error(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
+                )
+
+                raise Exception(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
+                )
+
         else:
             args.logger.error(
-                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+                f"Sorry, {args.hypo} is not supported for {args.dataset}."
             )
-
-            raise Exception(
-                f"Sorry, args.attribute is None or len(args.attribute) != 1."
-            )
+            raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
 
     elif args.dataset == "citation":
-        assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
+        if args.hypo == 1:
+            assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
 
-        df_paper_author = kwargs["df_paper_author"]
+            df_paper_author = kwargs["df_paper_author"]
 
-        if args.attribute is not None:
-            df_paper_author = df_paper_author[df_paper_author.year == args.attribute]
-            df = df_paper_author.groupby("paperTitle").count()
-            list_result = df.author.values.tolist()
+            if args.attribute is not None:
+                df_paper_author = df_paper_author[
+                    df_paper_author.year == args.attribute
+                ]
+                df = df_paper_author.groupby("paperTitle").count()
+                list_result = df.author.values.tolist()
+            else:
+                args.logger.error(f"Sorry, args.attribute is None.")
+                raise Exception(f"Sorry, args.attribute is None.")
+        elif args.hypo == 2:
+            list_result = []
+            node_attribute = nx.get_node_attributes(graph, "year")
+            for key, value in node_attribute.items():
+                if value == args.attribute:
+                    list_result.append(graph.nodes[key]["citation"])
+
+        elif args.hypo == 3:
+            list_result = [sum(nx.triangles(graph).values()) / 3]
         else:
-            args.logger.error(f"Sorry, args.attribute is None.")
-            raise Exception(f"Sorry, args.attribute is None.")
+            args.logger.error(
+                f"Sorry, {args.hypo} is not supported for {args.dataset}."
+            )
+            raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+
+    # if we want to test variance, then we should return value after this if statement
+    # otherwise the following code will be executed
 
     if len(list_result) == 0:
         args.logger.error(
@@ -170,6 +259,10 @@ def getGroundTruth(args, **kwargs):
         ground_truth = max(list_result)
     elif args.agg == "min":
         ground_truth = min(list_result)
+    elif args.agg == "variance":
+        ground_truth = statistics.variance(list_result)
+    elif args.agg == "number":
+        ground_truth = list_result[0]
     else:
         args.logger.error(f"Sorry, we don't support {args.agg}.")
         raise Exception(f"Sorry, we don't support {args.agg}.")
@@ -224,113 +317,65 @@ def testHypothesis(args, result_list, verbose=1):
     if verbose == 1:
         print_hypo_log(args, t_stat, p_value, H0, oneSide="higher")
 
-    print(f">>> Time for hypothesis testing is {round(time.time()-time_start_HT,5)}.")
-    args.logger.info(
-        f">>> Time for hypothesis testing is {round(time.time()-time_start_HT,5)}."
-    )
+    HTTime = round(time.time() - time_start_HT, 5)
+    print(f">>> Time for hypothesis testing is {HTTime}.")
+    args.logger.info(f">>> Time for hypothesis testing is {HTTime}.")
+    args.time_result[args.ratio].append(HTTime)
 
 
 def samplingGraph(args, graph):
     # time_sampling_graph_start = time.time()
+
     result_list = []
-    time_used = defaultdict(list)
+    time_used_list = defaultdict(list)
+    ##############################
+    ######## Exploration #########
+    ##############################
     if args.sampling_method == "RNNS":
-        from littleballoffur import RandomNodeNeighborSampler
-
-        for num_sample in range(args.num_samples):
-            time_one_sample_start = time.time()
-            model = RandomNodeNeighborSampler(
-                number_of_nodes=int(args.num_nodes * args.ratio),
-                seed=(int(args.seed) * num_sample),
-            )
-            new_graph = model.sample(graph)
-            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
-
-            time_rating_extraction_start = time.time()
-            result_list = new_graph_hypo_result(
-                args, new_graph, result_list, num_sample
-            )
-            time_used["rating_extraction"].append(
-                round(time.time() - time_rating_extraction_start, 2)
-            )
+        result_list, time_used = RNNS(args, graph, result_list, time_used_list)
 
     elif args.sampling_method == "SRW":
-        from littleballoffur import RandomWalkSampler
-
-        for num_sample in range(args.num_samples):
-            time_one_sample_start = time.time()
-            model = RandomWalkSampler(
-                number_of_nodes=int(args.num_nodes * args.ratio),
-                seed=(int(args.seed) * num_sample),
-            )
-            new_graph = model.sample(graph)
-            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
-
-            time_rating_extraction_start = time.time()
-            result_list = new_graph_hypo_result(
-                args, new_graph, result_list, num_sample
-            )
-            time_used["rating_extraction"].append(
-                round(time.time() - time_rating_extraction_start, 2)
-            )
+        result_list, time_used = SRW(args, graph, result_list, time_used_list)
 
     elif args.sampling_method == "ShortestPathS":
-        from littleballoffur import ShortestPathSampler
+        result_list, time_used = ShortestPathS(args, graph, result_list, time_used_list)
 
-        for num_sample in range(args.num_samples):
-            time_one_sample_start = time.time()
-            model = ShortestPathSampler(
-                number_of_nodes=int(args.num_nodes * args.ratio),
-                seed=(int(args.seed) * num_sample),
-            )
-            new_graph = model.sample(graph)
-            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+    elif args.sampling_method == "MHRWS":
+        result_list, time_used = MHRWS(args, graph, result_list, time_used_list)
 
-            time_rating_extraction_start = time.time()
-            result_list = new_graph_hypo_result(
-                args, new_graph, result_list, num_sample
-            )
-            time_used["rating_extraction"].append(
-                round(time.time() - time_rating_extraction_start, 2)
-            )
-    elif args.sampling_method == "MHRS":
-        from littleballoffur import MetropolisHastingsRandomWalkSampler
-
-        for num_sample in range(args.num_samples):
-            time_one_sample_start = time.time()
-            model = MetropolisHastingsRandomWalkSampler(
-                number_of_nodes=int(args.num_nodes * args.ratio),
-                seed=(int(args.seed) * num_sample),
-            )
-            new_graph = model.sample(graph)
-            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
-
-            time_rating_extraction_start = time.time()
-            result_list = new_graph_hypo_result(
-                args, new_graph, result_list, num_sample
-            )
-            time_used["rating_extraction"].append(
-                round(time.time() - time_rating_extraction_start, 2)
-            )
     elif args.sampling_method == "CommunitySES":
-        from littleballoffur import CommunityStructureExpansionSampler
+        result_list, time_used = CommunitySES(args, graph, result_list, time_used_list)
 
-        for num_sample in range(args.num_samples):
-            time_one_sample_start = time.time()
-            model = CommunityStructureExpansionSampler(
-                number_of_nodes=int(args.num_nodes * args.ratio),
-                seed=(int(args.seed) * num_sample),
-            )
-            new_graph = model.sample(graph)
-            time_used["sampling"].append(round(time.time() - time_one_sample_start, 2))
+    elif args.sampling_method == "CNARW":
+        result_list, time_used = CNARW(args, graph, result_list, time_used_list)
 
-            time_rating_extraction_start = time.time()
-            result_list = new_graph_hypo_result(
-                args, new_graph, result_list, num_sample
-            )
-            time_used["rating_extraction"].append(
-                round(time.time() - time_rating_extraction_start, 2)
-            )
+    elif args.sampling_method == "FFS":
+        result_list, time_used = FFS(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "SBS":
+        result_list, time_used = SBS(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "FrontierS":
+        result_list, time_used = FrontierS(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "NBRW":
+        result_list, time_used = NBRW(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "RW_Starter":
+        result_list, time_used = RW_Starter(args, graph, result_list, time_used_list)
+
+    ###############################
+    ######## Edge Sampler #########
+    ###############################
+    elif args.sampling_method == "RES":
+        result_list, time_used = RES(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "RNES":
+        result_list, time_used = RNES(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "RES_Induction":
+        result_list, time_used = RES_Induction(args, graph, result_list, time_used_list)
+
     else:
         args.logger.error(f"Sorry, we don't support {args.sampling_method}.")
         raise Exception(f"Sorry, we don't support {args.sampling_method}.")
@@ -342,59 +387,27 @@ def samplingGraph(args, graph):
     args.logger.info(
         f">>> Avg time for sampling {args.sampling_method} at {args.ratio} sampling ratio one time is {round(time_one_sample,2)}."
     )
-    time_rating_extraction = sum(time_used["rating_extraction"]) / len(
-        time_used["rating_extraction"]
+    args.time_result[args.ratio].append(round(time_one_sample, 2))
+    time_rating_extraction = sum(time_used["sample_graph_by_condition"]) / len(
+        time_used["sample_graph_by_condition"]
     )
     print(
-        f">>> Avg time for edge rating extraction at {args.ratio} sampling ratio one time is {round(time_rating_extraction,5)}."
+        f">>> Avg time for target node/edge extraction at {args.ratio} sampling ratio one time is {round(time_rating_extraction,5)}."
     )
     args.logger.info(
-        f">>> Avg time for  edge rating extraction at {args.ratio} sampling ratio one time is {round(time_rating_extraction,5)}."
+        f">>> Avg time for target node/edge extraction at {args.ratio} sampling ratio one time is {round(time_rating_extraction,5)}."
     )
+    args.time_result[args.ratio].append(round(time_rating_extraction, 5))
+
     return result_list
 
 
-# def new_graph_hypo_result(args, new_graph, result_list, num_sample):
-#     rating_dict = nx.get_edge_attributes(new_graph, name="rating")
-#     if args.dataset == "movielens":
-#         result = getRatings(args, new_graph, rating_dict)
-#         args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
-#     elif args.dataset == "citation":
-#         result = getAuthors(args, new_graph, rating_dict)
-#         args.logger.info(
-#             f"sample {num_sample}: {args.agg} number of author is {result}."
-#         )
-#     result_list.append(result)
-#     return result_list
-
-
-# def getRatings(args, new_graph, rating_dict):
-#     total_rating = []
-#     for key, value in rating_dict.items():
-#         from_node, to_node = key
-#         # print(from_node, to_node)
-#         if new_graph.nodes[from_node]["label"] == "movie":
-#             # print("from")
-#             if new_graph.nodes[from_node][args.attribute[0]] == 1:
-#                 total_rating.append(value)
-#         elif new_graph.nodes[to_node]["label"] == "movie":
-#             # print("to")
-#             if new_graph.nodes[to_node][args.attribute[0]] == 1:
-#                 total_rating.append(value)
-
-#     if len(total_rating) == 0:
-#         total_rating.append(0)
-
-#     if args.agg == "mean":
-#         result = sum(total_rating) / len(total_rating)
-#     elif args.agg == "max":
-#         result = max(total_rating)
-#     elif args.agg == "min":
-#         result = min(total_rating)
-#     else:
-#         raise Exception(f"Sorry, we don't support {args.agg}.")
-#     return result
-
-
 if __name__ == "__main__":
+    # import cProfile
+
+    # cProfile.run(
+    #     "main()",
+    #     filename="HypothesisTesting/log_and_results_2008/result.out",
+    #     sort="cumulative",
+    # )
     main()

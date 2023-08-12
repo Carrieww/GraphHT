@@ -1,19 +1,50 @@
+import statistics
+import time
+
 import networkx as nx
 
 
 def new_graph_hypo_result(args, new_graph, result_list, num_sample):
     if args.dataset == "movielens":
-        result_dict = nx.get_edge_attributes(new_graph, name="rating")
-        result = getRatings(args, new_graph, result_dict)
-        args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
+        if args.hypo == 1 or args.hypo == 2:
+            result_dict = nx.get_edge_attributes(new_graph, name="rating")
+            result = getRatings(args, new_graph, result_dict)
+            args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
     elif args.dataset == "citation":
-        result_dict = nx.get_edge_attributes(new_graph, name="label")
-        result = getAuthors(args, new_graph, result_dict)
-        args.logger.info(
-            f"sample {num_sample}: {args.agg} number of author is {result}."
-        )
+        if args.hypo == 1:
+            result = getAuthors(args, new_graph)
+            args.logger.info(
+                f"sample {num_sample}: {args.agg} number of author is {result}."
+            )
+        elif args.hypo == 2:
+            result = getCitations(args, new_graph)
+        elif args.hypo == 3:
+            # number of triangles
+            result = sum(nx.triangles(new_graph).values()) / 3
     result_list.append(result)
     return result_list
+
+
+def getCitations(args, new_graph):
+    total_citations = []
+    node_attribute = nx.get_node_attributes(new_graph, "year")
+    for key, value in node_attribute.items():
+        if value == args.attribute:
+            total_citations.append(new_graph.nodes[key]["citation"])
+
+    if len(total_citations) == 0:
+        total_citations.append(0)
+
+    if args.agg == "mean":
+        result = sum(total_citations) / len(total_citations)
+    elif args.agg == "max":
+        result = max(total_citations)
+    elif args.agg == "min":
+        result = min(total_citations)
+    else:
+        args.logger.error(f"Sorry, we don't support {args.agg}.")
+        raise Exception(f"Sorry, we don't support {args.agg}.")
+    return result
 
 
 def getRatings(args, new_graph, result_dict):
@@ -39,50 +70,32 @@ def getRatings(args, new_graph, result_dict):
         result = max(total_rating)
     elif args.agg == "min":
         result = min(total_rating)
+    elif args.agg == "variance":
+        result = statistics.variance(total_rating)
     else:
         args.logger.error(f"Sorry, we don't support {args.agg}.")
         raise Exception(f"Sorry, we don't support {args.agg}.")
     return result
 
 
-def getAuthors(args, new_graph, result_dict):
-    count_author = 0
+def getAuthors(args, new_graph):
     paper_set = set()
+    author_list = []
+    node_attribute = nx.get_node_attributes(new_graph, "year")
+    for key, value in node_attribute.items():
+        if value == args.attribute:
+            degree = new_graph.degree(key, "writes")
+            if degree != 0:
+                paper_set.add(key)
+                author_list.append(new_graph.degree(key, "writes"))
+
     if args.agg == "mean":
-        for key, value in result_dict.items():
-            if value == "writes":
-                from_id, to_id = key
-                # print(new_graph.edges[(from_id, to_id)])
-                # node=new_graph.nodes[authorId]
-                if (
-                    new_graph.nodes[from_id]["label"] == "author"
-                    and new_graph.nodes[to_id]["year"] == args.attribute
-                ):
-                    paper_set.add(to_id)
-                    # print("true")
-                    count_author += 1
-                elif (
-                    new_graph.nodes[from_id]["label"] == "paper"
-                    and new_graph.nodes[from_id]["year"] == args.attribute
-                ):
-                    paper_set.add(from_id)
-                    count_author += 1
-                else:
-                    pass
-
         if len(paper_set) == 0:
-            args.logger.error(
-                f"The graph contains no node/edge satisfying the hypothesis, you may need to increase the sampling ratio."
-            )
+            print(paper_set)
             raise Exception(
-                f"The graph contains no node/edge satisfying the hypothesis, you may need to increase the sampling ratio."
+                f"no author satisfying {args.attribute} by sampling {args.ratio} of {args.dataset}."
             )
-
-        avg = count_author / len(paper_set)
-        args.logger.info(
-            f"There are {len(paper_set)} papers and {count_author} authors"
-        )
-        return avg
+        return sum(author_list) / len(paper_set)
 
     elif args.agg == "max":
         args.logger.error(f"Sorry, we don't support {args.agg}.")

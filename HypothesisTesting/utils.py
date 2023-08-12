@@ -42,6 +42,8 @@ def logger(args):
             log_filepath = os.path.join(
                 args.log_folderPath,
                 args.dataset
+                + "_hypo"
+                + str(args.hypo)
                 + "_"
                 + args.sampling_method
                 + "_"
@@ -56,6 +58,8 @@ def logger(args):
         log_filepath = os.path.join(
             args.log_folderPath,
             args.dataset
+            + "_hypo"
+            + str(args.hypo)
             + "_"
             + args.sampling_method
             + "_"
@@ -86,7 +90,10 @@ def drawAllRatings(args, rating_summary):
     for ratio, rating in rating_summary.items():
         CI = list(args.CI[index - 1])
         plt.plot(x, rating, label=f"{args.agg} rating ({ratio})")
-        plt.fill_between(x, CI[0], CI[1], alpha=index / 10)
+        if np.isnan(CI[0]) or np.isnan(CI[1]):
+            pass
+        else:
+            plt.fill_between(x, CI[0], CI[1], alpha=index / 10)
         index += 1
     plt.xlabel("i-th sampled subgraph")
     plt.ylabel("average rating")
@@ -96,6 +103,8 @@ def drawAllRatings(args, rating_summary):
         args.fig_path = os.path.join(
             args.log_folderPath,
             args.dataset
+            + "_hypo"
+            + str(args.hypo)
             + "_"
             + args.sampling_method
             + "_"
@@ -110,6 +119,8 @@ def drawAllRatings(args, rating_summary):
         args.fig_path = os.path.join(
             args.log_folderPath,
             args.dataset
+            + "_hypo"
+            + str(args.hypo)
             + "_"
             + args.sampling_method
             + "_"

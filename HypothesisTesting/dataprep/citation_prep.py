@@ -3,6 +3,7 @@ import pickle
 import re
 
 import networkx as nx
+import numpy as np
 import pandas as pd
 
 
@@ -60,6 +61,10 @@ def getPaperList(args, df_paper_author):
     # print(df_paper_author.shape)
     df_paper_subset = df_paper_author.loc[:, ["paperTitle", "year", "index"]]
     df_paper_subset = df_paper_subset.drop_duplicates()
+    df_paper_subset["citation"] = np.random.randint(
+        0, 5000, size=(df_paper_subset.shape[0],)
+    )
+
     # print(df_paper_subset.shape)
 
     attr_index = -1
@@ -71,6 +76,8 @@ def getPaperList(args, df_paper_author):
             year_index = attr_index
         elif col_name == "index":
             index_index = attr_index
+        elif col_name == "citation":
+            citation_index = attr_index
 
     paper_list = []
     for _, row in df_paper_subset.iterrows():
@@ -79,6 +86,7 @@ def getPaperList(args, df_paper_author):
         node_attribute["label"] = "paper"
         node_attribute["title"] = row[paperTitle_index]
         node_attribute["year"] = row[year_index]
+        node_attribute["citation"] = row[citation_index]
         # print(row[9])
         node_name = row[index_index]
         paper_list.append((node_name, node_attribute))
@@ -140,7 +148,8 @@ def getRelationLists(args, graph, df_paper_author, df_paper_paper):
         to_node = row[index_index]
         assert to_node in graph.nodes(), f"{to_node} is not in g."
         edge_attribute = {}
-        edge_attribute["label"] = "writes"
+        edge_attribute["writes"] = 1
+        edge_attribute["relates_to"] = 0
         author_paper_relation_list.append((from_node, to_node, edge_attribute))
     print(f"There are {len(author_paper_relation_list)} author paper relations.")
     args.logger.info(
@@ -168,7 +177,8 @@ def getRelationLists(args, graph, df_paper_author, df_paper_paper):
         to_node = "index" + str(int(row[referenceId_index]))
         assert to_node in graph.nodes(), f"{to_node} is not in g."
         edge_attribute = {}
-        edge_attribute["label"] = "relates_to"
+        edge_attribute["relates_to"] = 1
+        edge_attribute["writes"] = 0
         paper_paper_relation_list.append((from_node, to_node, edge_attribute))
 
     print(f"There are {len(paper_paper_relation_list)} paper paper relations.")
