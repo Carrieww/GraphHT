@@ -54,15 +54,22 @@ def getMovieList(args, df_movies):
     attr_index = -1
     for col_name in df_movies.columns:
         attr_index += 1
-        if col_name == args.attribute[0]:
-            break
+        if col_name == "Adventure":
+            adv_index = attr_index
+        elif col_name == "Fantasy":
+            fan_index = attr_index
+        elif col_name == "Comedy":
+            com_index = attr_index
 
     movie_list = []
     for _, row in df_movies.iterrows():
         node_attribute = {}
         node_attribute["label"] = "movie"
         node_attribute["title"] = row[1]
-        node_attribute[args.attribute[0]] = row[attr_index]
+        node_attribute["Adventure"] = row[adv_index]
+        node_attribute["Fantasy"] = row[fan_index]
+        node_attribute["Comedy"] = row[com_index]
+
         node_name = "movie" + str(row[0])
         movie_list.append((node_name, node_attribute))
 

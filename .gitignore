@@ -10,6 +10,7 @@ ca-GrQc.txt
 outputacm.txt
 citation.py
 .DS_Store
+HypothesisTesting/*.png
 
 # Distribution / packaging
 .Python

@@ -262,6 +262,7 @@ def SBS(args, graph, result_list, time_used_list):
         model = SnowBallSampler_new(
             number_of_nodes=int(args.num_nodes * args.ratio),
             seed=(int(args.seed) * num_sample),
+            k=80,
         )
         new_graph = model.sample(graph)
         result_list, time_used_list = time_sampling_extraction(
@@ -457,12 +458,74 @@ def CNARW(args, graph, result_list, time_used_list):
 ###############################
 
 
+def RNS(args, graph, result_list, time_used_list):
+    from littleballoffur import RandomNodeSampler
+
+    for num_sample in range(args.num_samples):
+        time_one_sample_start = time.time()
+        model = RandomNodeSampler(
+            number_of_nodes=int(args.num_nodes * args.ratio),
+            seed=(int(args.seed) * num_sample),
+        )
+        new_graph = model.sample(graph)
+        result_list, time_used_list = time_sampling_extraction(
+            args,
+            new_graph,
+            result_list,
+            time_used_list,
+            time_one_sample_start,
+            num_sample,
+        )
+    return result_list, time_used_list
+
+
+def DBS(args, graph, result_list, time_used_list):
+    from littleballoffur import DegreeBasedSampler
+
+    for num_sample in range(args.num_samples):
+        time_one_sample_start = time.time()
+        model = DegreeBasedSampler(
+            number_of_nodes=int(args.num_nodes * args.ratio),
+            seed=(int(args.seed) * num_sample),
+        )
+        new_graph = model.sample(graph)
+        result_list, time_used_list = time_sampling_extraction(
+            args,
+            new_graph,
+            result_list,
+            time_used_list,
+            time_one_sample_start,
+            num_sample,
+        )
+    return result_list, time_used_list
+
+
+def PRBS(args, graph, result_list, time_used_list):
+    from littleballoffur import PageRankBasedSampler
+
+    for num_sample in range(args.num_samples):
+        time_one_sample_start = time.time()
+        model = PageRankBasedSampler(
+            number_of_nodes=int(args.num_nodes * args.ratio),
+            seed=(int(args.seed) * num_sample),
+        )
+        new_graph = model.sample(graph)
+        result_list, time_used_list = time_sampling_extraction(
+            args,
+            new_graph,
+            result_list,
+            time_used_list,
+            time_one_sample_start,
+            num_sample,
+        )
+    return result_list, time_used_list
+
+
 ###############################
 ######## Edge Sampler #########
 ###############################
 
 
-# not connected
 def RES(args, graph, result_list, time_used_list):
     from littleballoffur import RandomEdgeSampler
 

@@ -9,13 +9,13 @@ def parse_args():
     parser.add_argument(
         "--file_num",
         type=int,
-        default=100,
+        default=999,
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
         "--sampling_method",
         type=str,
-        default="RNNS",
+        default="RES_Induction",
         help="sampling method.",
     )
     parser.add_argument(
@@ -34,7 +34,17 @@ def parse_args():
     parser.add_argument(
         "--sampling_ratio",
         type=list,
-        default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+        default=[
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            0.6,
+            0.7,
+            0.8,
+            0.9,
+        ],  # [0.01,0.02,0.03,0.04,0.05,0.08,0.1,],
         help="sampling size list.",
     )  # default [0.02,0.04,0.06,0.08,0.1,0.15,0.2],[0.2, 0.4, 0.6, 0.8, 0.9]
     parser.add_argument(
@@ -61,7 +71,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=1,
+        default=2,
         help="choosing from: 1, 2...",
     )
     # movielens

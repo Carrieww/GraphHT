@@ -12,12 +12,15 @@ from dataprep.citation_prep import citation_prep
 from dataprep.movielens_prep import movielens_prep, moviePreprocess
 from sampling import (
     CNARW,
+    DBS,
     FFS,
     MHRWS,
     NBRW,
+    PRBS,
     RES,
     RNES,
     RNNS,
+    RNS,
     SBS,
     SRW,
     CommunitySES,
@@ -118,6 +121,7 @@ def main():
         args.logger.info(" ")
         args.logger.info(f">>> sampling ratio: {args.ratio}")
         result_list = samplingGraph(args, graph)
+        print((sum(result_list) / len(result_list)))
 
         # print total time used
         total_time = time.time() - time_ratio_start
@@ -150,7 +154,7 @@ def main():
             f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
         )
 
-    drawAllRatings(args, args.result)
+    # drawAllRatings(args, args.result)
 
     headers = [
         "Sampling time",
@@ -160,16 +164,12 @@ def main():
     ]
 
     print(
-        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[2].capitalize():<25}"
+        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[3].capitalize():<25}"
     )
     args.logger.info(
-        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[2].capitalize():<25}"
+        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[3].capitalize():<25}"
     )
 
-    # Id        Name           Age
-    # 1         alice          29
-    # 2         bobbyhadz      30
-    # 3         carl           31
     for _, value in args.time_result.items():
         # print(value)
         print(f"{value[0]: <25}{value[1]: <25}{value[2]:<25}{value[3]:<25}")
@@ -180,6 +180,7 @@ def main():
 
 
 def getGroundTruth(args, graph, **kwargs):
+    time_get_ground_truth = time.time()
     if args.dataset == "movielens":
         if args.hypo == 1 or args.hypo == 2:
             assert (
@@ -267,7 +268,9 @@ def getGroundTruth(args, graph, **kwargs):
         args.logger.error(f"Sorry, we don't support {args.agg}.")
         raise Exception(f"Sorry, we don't support {args.agg}.")
 
-    args.logger.info(f"The ground truth is {round(ground_truth,2)}.")
+    args.logger.info(
+        f"The ground truth is {round(ground_truth,5)}, taking time {round(time.time()-time_get_ground_truth,5)}."
+    )
     return ground_truth
 
 
@@ -363,6 +366,18 @@ def samplingGraph(args, graph):
 
     elif args.sampling_method == "RW_Starter":
         result_list, time_used = RW_Starter(args, graph, result_list, time_used_list)
+
+    ###############################
+    ######## Node Sampler #########
+    ###############################
+    elif args.sampling_method == "RNS":
+        result_list, time_used = RNS(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "DBS":
+        result_list, time_used = DBS(args, graph, result_list, time_used_list)
+
+    elif args.sampling_method == "PRBS":
+        result_list, time_used = PRBS(args, graph, result_list, time_used_list)
 
     ###############################
     ######## Edge Sampler #########
