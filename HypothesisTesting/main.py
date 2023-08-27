@@ -31,7 +31,7 @@ from sampling import (
 )
 
 # from new_graph_hypo_postprocess import new_graph_hypo_result
-from scipy.stats import ttest_1samp
+from scipy import stats
 from utils import (
     clean,
     drawAllRatings,
@@ -61,9 +61,7 @@ def main():
     time_dataset_prep = time.time()
     args.dataset_path = os.path.join(os.getcwd(), "datasets", args.dataset)
     if args.dataset == "movielens":
-        assert (
-            len(args.attribute) == 1
-        ), f"Only one movie genre attribute is required for {args.dataset}."
+        assert args.attribute is not None, f"args.attribute should not be None."
 
         df_movies = pd.read_csv(os.path.join(args.dataset_path, "movies.csv"))
         df_ratings = pd.read_csv(os.path.join(args.dataset_path, "ratings.csv"))
@@ -71,10 +69,7 @@ def main():
         graph = movielens_prep(args, df_movies, df_ratings)
 
     elif args.dataset == "citation":
-        assert (
-            len(args.attribute) == 1
-        ), f"Only one year attribute is required for {args.dataset}."
-        args.attribute = args.attribute[0]
+        assert args.attribute is not None, f"args.attribute should not be None."
 
         df_paper_author = pd.read_csv(
             os.path.join(args.dataset_path, "paper_author.csv")
@@ -101,16 +96,18 @@ def main():
     )
     args.logger.info(f"{args.dataset} is connected: {nx.is_connected(graph)}.")
 
-    # prepare ground truths and population mean for one-side hypothesis testings
     if args.dataset == "movielens":
         args.ground_truth = getGroundTruth(
             args, graph, df_movies=df_movies, df_ratings=df_ratings
         )
     elif args.dataset == "citation":
         args.ground_truth = getGroundTruth(args, graph, df_paper_author=df_paper_author)
-    args.CI = []
-    args.popmean_lower = round(args.ground_truth - 0.05, 2)
-    args.popmean_higher = round(args.ground_truth + 0.05, 2)
+
+    if args.HTtype == "one-sample":
+        args.ground_truth = args.ground_truth[args.attribute[0]]
+        args.CI = []
+        args.popmean_lower = round(args.ground_truth - 0.05, 2)
+        args.popmean_higher = round(args.ground_truth + 0.05, 2)
 
     # sample for each sampling ratio
     args.result = defaultdict(list)
@@ -121,7 +118,6 @@ def main():
         args.logger.info(" ")
         args.logger.info(f">>> sampling ratio: {args.ratio}")
         result_list = samplingGraph(args, graph)
-        print((sum(result_list) / len(result_list)))
 
         # print total time used
         total_time = time.time() - time_ratio_start
@@ -133,26 +129,85 @@ def main():
             f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
         )
 
-        # print percentage error w.r.t. the ground truth
-        percent_error = (
-            100
-            * abs((sum(result_list) / len(result_list)) - args.ground_truth)
-            / args.ground_truth
-        )
-        print(
-            f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
-        )
-        args.logger.info(
-            f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
-        )
-        args.time_result[args.ratio].append(round(percent_error, 2))
+        ##############################
+        ##### Hypothesis Testing #####
+        ##############################
+        if args.HTtype == "one-sample":
+            # print percentage error w.r.t. the ground truth
+            percent_error = (
+                100
+                * abs((sum(result_list) / len(result_list)) - args.ground_truth)
+                / args.ground_truth
+            )
+            print(
+                f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+            )
+            args.logger.info(
+                f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+            )
+            args.time_result[args.ratio].append(round(percent_error, 2))
 
-        args.result[ratio] = result_list
+            args.result[ratio] = result_list
 
-        testHypothesis(args, result_list)
-        args.logger.info(
-            f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
-        )
+            HypothesisTesting(args, result_list)
+            args.logger.info(
+                f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
+            )
+        elif args.HTtype == "two-sample":
+            result_list_new = defaultdict(list)
+            # ground_truth = abs(
+            #     args.ground_truth[args.attribute[0]]
+            #     - args.ground_truth[args.attribute[1]]
+            # )
+
+            value = []
+            for attribute in args.attribute:
+                result_attribute = [i[attribute] for i in result_list]
+                result_list_new[attribute] = result_attribute
+                value.append(sum(result_attribute) / len(result_attribute))
+
+            percent_error_0 = (
+                100
+                * abs(value[0] - args.ground_truth[args.attribute[0]])
+                / args.ground_truth[args.attribute[0]]
+            )
+            percent_error_1 = (
+                100
+                * abs(value[1] - args.ground_truth[args.attribute[1]])
+                / args.ground_truth[args.attribute[1]]
+            )
+
+            percent_error = (percent_error_0 + percent_error_1) / 2
+            print(f">>> {args.attribute[0]}: sampled result is {value[0]}.")
+            print(f">>> {args.attribute[1]}: sampled result is {value[1]}.")
+            args.logger.info(f">>> {args.attribute[0]}: sampled result is {value[0]}.")
+            args.logger.info(f">>> {args.attribute[1]}: sampled result is {value[1]}.")
+            print(
+                f">>> Percentage error of {args.attribute[0]} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
+            )
+            print(
+                f">>> Percentage error of {args.attribute[1]} at {args.ratio} sampling ratio is {round(percent_error_1,2)}%."
+            )
+            args.logger.info(
+                f">>> Percentage error of {args.attribute[0]} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
+            )
+            args.logger.info(
+                f">>> Percentage error of {args.attribute[1]} at {args.ratio} sampling ratio is {round(percent_error_1,2)}%."
+            )
+
+            args.time_result[args.ratio].append(round(percent_error, 2))
+
+            # args.result[ratio] = result_list
+
+            HypothesisTesting(args, result_list_new)
+            args.logger.info(
+                f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
+            )
+
+        else:
+            raise Exception(
+                "Sorry we do not support hypothesis types other than one-sample and two-sample."
+            )
 
     # drawAllRatings(args, args.result)
 
@@ -181,22 +236,17 @@ def main():
 
 def getGroundTruth(args, graph, **kwargs):
     time_get_ground_truth = time.time()
+    dict_result = {}
     if args.dataset == "movielens":
-        if args.hypo == 1 or args.hypo == 2:
-            assert (
-                len(kwargs) == 2
-            ), f"{args.dataset} requires df_movies and df_ratings."
+        assert len(kwargs) == 2, f"{args.dataset} requires df_movies and df_ratings."
+        df_movies = kwargs["df_movies"]
+        df_ratings = kwargs["df_ratings"]
 
-            df_movies = kwargs["df_movies"]
-            df_ratings = kwargs["df_ratings"]
+        if args.hypo < 10:
+            args.HTtype = "one-sample"
 
             if (args.attribute is not None) and (len(args.attribute) == 1):
-                movie = df_movies.loc[:, ["movieId"] + args.attribute]
-                df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
                 attribute = args.attribute[0]
-                list_result = df_ratings[
-                    df_ratings[attribute] == 1
-                ].rating.values.tolist()
             else:
                 args.logger.error(
                     f"Sorry, args.attribute is None or len(args.attribute) != 1."
@@ -205,6 +255,71 @@ def getGroundTruth(args, graph, **kwargs):
                 raise Exception(
                     f"Sorry, args.attribute is None or len(args.attribute) != 1."
                 )
+        else:
+            args.HTtype = "two-sample"
+            assert (
+                args.comparison is not None
+            ), f"{args.dataset} requires the args.comparison parameter."
+
+            if (args.attribute is not None) and (len(args.attribute) == 2):
+                pass
+            else:
+                args.logger.error(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
+                )
+
+                raise Exception(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
+                )
+
+        if args.hypo == 1:
+            args.H0 = f"{args.agg} number of {args.attribute[0]} movies rated by users"
+            df_movies = df_movies[df_movies[attribute] == 1]
+            df_ratings = pd.merge(df_ratings, df_movies, on="movieId", how="inner")
+            df_ratings = df_ratings.groupby("userId").count()
+            dict_result[args.attribute[0]] = df_ratings.movieId.to_list()
+
+        elif args.hypo == 2:
+            args.H0 = f"{args.agg} number of genres {args.attribute[0]} movies have"
+
+            # genre_list=df_movies.columns[3:df_movies.shape[1]-1]
+            genre_list = [
+                "Adventure",
+                "Comedy",
+                "Fantasy",
+                "Children",
+                "Romance",
+                "Drama",
+                "Thriller",
+            ]
+            df_movies["num_genre"] = df_movies[genre_list].sum(axis=1)
+            dict_result[args.attribute[0]] = df_movies.num_genre.to_list()
+
+        elif args.hypo == 3 or args.hypo == 4:
+            args.H0 = f"{args.agg} rating of {args.attribute[0]} movies"
+            movie = df_movies.loc[:, ["movieId"] + args.attribute]
+            df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
+            dict_result[args.attribute[0]] = df_ratings[
+                df_ratings[attribute] == 1
+            ].rating.values.tolist()
+
+        # two sample hypo
+        elif args.hypo == 10:
+            if args.comparison == "!=":
+                args.H0 = f"{args.agg} rating of {args.attribute[0]} movies == that of {args.attribute[1]} movies."
+            else:
+                args.H0 = f"{args.agg} rating of {args.attribute[0]} movies {args.comparison} that of {args.attribute[1]} movies."
+            movie_0 = df_movies.loc[:, ["movieId", args.attribute[0]]]
+            df_ratings_0 = pd.merge(movie_0, df_ratings, on="movieId", how="inner")
+            movie_1 = df_movies.loc[:, ["movieId", args.attribute[1]]]
+            df_ratings_1 = pd.merge(movie_1, df_ratings, on="movieId", how="inner")
+
+            dict_result[args.attribute[0]] = df_ratings_0[
+                df_ratings_0[args.attribute[0]] == 1
+            ].rating.values.tolist()
+            dict_result[args.attribute[1]] = df_ratings_1[
+                df_ratings_1[args.attribute[1]] == 1
+            ].rating.values.tolist()
 
         else:
             args.logger.error(
@@ -213,39 +328,114 @@ def getGroundTruth(args, graph, **kwargs):
             raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
 
     elif args.dataset == "citation":
+        assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
+
+        df_paper_author = kwargs["df_paper_author"]
+        # df_paper_paper = kwargs["df_paper_paper"]
+        if args.hypo < 10:
+            args.HTtype = "one-sample"
+
+            if (args.attribute is not None) and (len(args.attribute) == 1):
+                # attribute = args.attribute[0]
+                pass
+            else:
+                args.logger.error(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
+                )
+
+                raise Exception(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
+                )
+        else:
+            args.HTtype = "two-sample"
+            assert (
+                args.comparison is not None
+            ), f"{args.dataset} requires the args.comparison parameter."
+
+            if (args.attribute is not None) and (len(args.attribute) == 2):
+                pass
+            else:
+                args.logger.error(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
+                )
+
+                raise Exception(
+                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
+                )
         if args.hypo == 1:
-            assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
-
-            df_paper_author = kwargs["df_paper_author"]
-
+            args.H0 = f"{args.agg} authors of papers in {args.attribute[0]}"
             if args.attribute is not None:
                 df_paper_author = df_paper_author[
-                    df_paper_author.year == args.attribute
+                    df_paper_author.year == int(args.attribute[0])
                 ]
                 df = df_paper_author.groupby("paperTitle").count()
-                list_result = df.author.values.tolist()
+                dict_result[args.attribute[0]] = df.author.values.tolist()
             else:
                 args.logger.error(f"Sorry, args.attribute is None.")
                 raise Exception(f"Sorry, args.attribute is None.")
         elif args.hypo == 2:
-            list_result = []
+            args.H0 = f"{args.agg} citation of papers in {args.attribute[0]}"
+            dict_result[args.attribute[0]] = []
             node_attribute = nx.get_node_attributes(graph, "year")
             for key, value in node_attribute.items():
-                if value == args.attribute:
-                    list_result.append(graph.nodes[key]["citation"])
+                if value == int(args.attribute[0]):
+                    dict_result[args.attribute[0]].append(graph.nodes[key]["citation"])
 
         elif args.hypo == 3:
-            list_result = [sum(nx.triangles(graph).values()) / 3]
+            args.H0 = f"{args.agg} correlation score of papers in {args.attribute[0]} with its related papers"
+            result_dict = nx.get_edge_attributes(graph, name="correlation")
+            # dict_result = result_dict.values()
+            total_correlation = defaultdict(list)
+            # paper_set = set()
+            for key, value in result_dict.items():
+                from_node, to_node = key
+                # print(from_node, to_node)
+                if graph.nodes[from_node]["year"] == int(args.attribute[0]):
+                    total_correlation[from_node].append(value)
+
+                elif graph.nodes[to_node]["year"] == int(args.attribute[0]):
+                    total_correlation[to_node].append(value)
+            if len(total_correlation) == 0:
+                raise Exception(
+                    f"No nodes with valid correlation can generate the ground truth."
+                )
+
+            # dict_result = list(map(mean, list(total_correlation.values())))
+            value_list = list(total_correlation.values())
+            dict_result[args.attribute[0]] = list(
+                map(lambda idx: sum(idx) / float(len(idx)), value_list)
+            )
+
+            # dict_result = [sum(nx.triangles(graph).values()) / 3]
+
+        elif args.hypo == 4:
+            args.H0 = f"{args.agg} number of triangles"
+            dict_result[args.attribute[0]] = [sum(nx.triangles(graph).values()) / 3]
+
+        # two sample hypo
+        elif args.hypo == 10:
+            if args.comparison == "!=":
+                args.H0 = f"{args.agg} citations of {args.attribute[0]} papers == that of {args.attribute[1]} papers."
+            else:
+                args.H0 = f"{args.agg} citations of {args.attribute[0]} papers {args.comparison} that of {args.attribute[1]} papers."
+
+            # args.H0 = f"{args.agg} citation of papers in {args.attribute[0]}"
+            dict_result[args.attribute[0]] = []
+            dict_result[args.attribute[1]] = []
+            node_attribute = nx.get_node_attributes(graph, "year")
+            for key, value in node_attribute.items():
+                if value == int(args.attribute[0]):
+                    dict_result[args.attribute[0]].append(graph.nodes[key]["citation"])
+                elif value == int(args.attribute[1]):
+                    dict_result[args.attribute[1]].append(graph.nodes[key]["citation"])
+
         else:
             args.logger.error(
                 f"Sorry, {args.hypo} is not supported for {args.dataset}."
             )
             raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
 
-    # if we want to test variance, then we should return value after this if statement
-    # otherwise the following code will be executed
-
-    if len(list_result) == 0:
+    if len(dict_result[args.attribute[0]]) == 0:
         args.logger.error(
             f"The graph contains no node/edge satisfying the hypothesis, you may need to change the attribute."
         )
@@ -254,75 +444,105 @@ def getGroundTruth(args, graph, **kwargs):
         )
 
     # check aggregation method
-    if args.agg == "mean":
-        ground_truth = sum(list_result) / len(list_result)
-    elif args.agg == "max":
-        ground_truth = max(list_result)
-    elif args.agg == "min":
-        ground_truth = min(list_result)
-    elif args.agg == "variance":
-        ground_truth = statistics.variance(list_result)
-    elif args.agg == "number":
-        ground_truth = list_result[0]
-    else:
-        args.logger.error(f"Sorry, we don't support {args.agg}.")
-        raise Exception(f"Sorry, we don't support {args.agg}.")
+    ground_truth = {}
+    for k, v in dict_result.items():
+        if args.agg == "mean":
+            ground_truth[k] = sum(v) / len(v)
+        elif args.agg == "max":
+            ground_truth[k] = max(v)
+        elif args.agg == "min":
+            ground_truth[k] = min(v)
+        elif args.agg == "variance":
+            ground_truth[k] = statistics.variance(v)
+        elif args.agg == "number":
+            ground_truth[k] = v[0]
+        else:
+            args.logger.error(f"Sorry, we don't support {args.agg}.")
+            raise Exception(f"Sorry, we don't support {args.agg}.")
 
-    args.logger.info(
-        f"The ground truth is {round(ground_truth,5)}, taking time {round(time.time()-time_get_ground_truth,5)}."
-    )
+    time_now = time.time()
+    for k, v in ground_truth.items():
+        args.logger.info(
+            f"{k}: The ground truth is {round(v,5)}, taking time {round(time_now-time_get_ground_truth,5)}."
+        )
     return ground_truth
 
 
-def testHypothesis(args, result_list, verbose=1):
+def HypothesisTesting(args, result_list, verbose=1):
     time_start_HT = time.time()
 
     #################################
     # test H1: avg rating = popmean #
     #################################
+    if args.HTtype == "one-sample":
+        # Two side HT
+        t_stat, p_value = stats.ttest_1samp(
+            result_list, popmean=args.ground_truth, alternative="two-sided"
+        )
+        if verbose == 1:
+            print_hypo_log(args, t_stat, p_value, args.H0, twoSides=True)
+    else:
+        if args.comparison == "==" or args.comparison == "!=":
+            alternative = "two-sided"
+        elif args.comparison == "<":
+            alternative = "greater"
+        else:
+            alternative = "less"
 
-    t_stat, p_value = ttest_1samp(
-        result_list, popmean=args.ground_truth, alternative="two-sided"
-    )
-    H0 = f"{args.agg} rating of {args.attribute} users"
+        # H0: equal variance
+        t_stat, p_value = stats.levene(
+            result_list[args.attribute[0]],
+            result_list[args.attribute[1]],
+            center="mean",
+        )
+        print(f"pvalue: {p_value} (< 0.05 means inequal variance).")
+        args.logger.info(f"pvalue: {p_value} (< 0.05 means inequal variance).")
+        # print("")
 
-    if verbose == 1:
-        print_hypo_log(args, t_stat, p_value, H0, twoSides=True)
-
-    CI = st.t.interval(
-        confidence=0.95,
-        df=len(result_list) - 1,
-        loc=np.mean(result_list),
-        scale=st.sem(result_list),
-    )
-    args.CI.append(CI)
-    args.logger.info(CI)
+        t_stat, p_value = stats.ttest_ind(
+            a=result_list[args.attribute[0]],
+            b=result_list[args.attribute[1]],
+            equal_var=True,
+            alternative=alternative,
+        )
+        if verbose == 1:
+            print_hypo_log(args, t_stat, p_value, args.H0)
+    # CI = st.t.interval(
+    #     confidence=0.95,
+    #     df=len(result_list) - 1,
+    #     loc=np.mean(result_list),
+    #     scale=st.sem(result_list),
+    # )
+    # args.CI.append(CI)
+    # args.logger.info(CI)
 
     #######################################
     # test H1: avg rating > popmean_lower #
     #######################################
 
-    H0 = f"{args.agg} rating of {args.attribute} users"
-    t_stat, p_value = ttest_1samp(
-        result_list, popmean=args.popmean_lower, alternative="greater"
-    )
-    if verbose == 1:
-        print_hypo_log(args, t_stat, p_value, H0, oneSide="lower")
+    # H0 = f"{args.agg} rating of {args.attribute} users"
+    # t_stat, p_value = ttest_1samp(
+    #     result_list, popmean=args.popmean_lower, alternative="greater"
+    # )
+    # if verbose == 1:
+    #     print_hypo_log(args, t_stat, p_value, args.H0, oneSide="lower")
 
     ########################################
     # test H1: avg rating < popmean_higher #
     ########################################
 
-    H0 = f"{args.agg} rating of {args.attribute} users"
-    t_stat, p_value = ttest_1samp(
-        result_list, popmean=args.popmean_higher, alternative="less"
-    )
-    if verbose == 1:
-        print_hypo_log(args, t_stat, p_value, H0, oneSide="higher")
+    # H0 = f"{args.agg} rating of {args.attribute} users"
+    # t_stat, p_value = ttest_1samp(
+    #     result_list, popmean=args.popmean_higher, alternative="less"
+    # )
+    # if verbose == 1:
+    #     print_hypo_log(args, t_stat, p_value, args.H0, oneSide="higher")
 
     HTTime = round(time.time() - time_start_HT, 5)
     print(f">>> Time for hypothesis testing is {HTTime}.")
+    print("")
     args.logger.info(f">>> Time for hypothesis testing is {HTTime}.")
+    args.logger.info("")
     args.time_result[args.ratio].append(HTTime)
 
 

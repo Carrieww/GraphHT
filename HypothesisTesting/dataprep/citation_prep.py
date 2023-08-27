@@ -149,6 +149,7 @@ def getRelationLists(args, graph, df_paper_author, df_paper_paper):
         assert to_node in graph.nodes(), f"{to_node} is not in g."
         edge_attribute = {}
         edge_attribute["writes"] = 1
+        # edge_attribute["correlation"] = 0
         edge_attribute["relates_to"] = 0
         author_paper_relation_list.append((from_node, to_node, edge_attribute))
     print(f"There are {len(author_paper_relation_list)} author paper relations.")
@@ -161,6 +162,9 @@ def getRelationLists(args, graph, df_paper_author, df_paper_paper):
     df_paper_paper_valid.loc[:, ["referenceIndex"]] = df_paper_paper_valid[
         "referenceIndex"
     ].astype(int)
+    df_paper_paper_valid["correlation"] = np.random.rand(
+        df_paper_paper_valid.shape[0],
+    )
 
     attr_index = -1
     for col_name in df_paper_paper_valid.columns:
@@ -169,6 +173,8 @@ def getRelationLists(args, graph, df_paper_author, df_paper_paper):
             index_index = attr_index
         elif col_name == "referenceIndex":
             referenceId_index = attr_index
+        elif col_name == "correlation":
+            correlationId_index = attr_index
 
     paper_paper_relation_list = []
     for _, row in df_paper_paper_valid.iterrows():
@@ -178,6 +184,7 @@ def getRelationLists(args, graph, df_paper_author, df_paper_paper):
         assert to_node in graph.nodes(), f"{to_node} is not in g."
         edge_attribute = {}
         edge_attribute["relates_to"] = 1
+        edge_attribute["correlation"] = round(row[correlationId_index], 2)
         edge_attribute["writes"] = 0
         paper_paper_relation_list.append((from_node, to_node, edge_attribute))
 

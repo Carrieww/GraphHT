@@ -262,7 +262,6 @@ def SBS(args, graph, result_list, time_used_list):
         model = SnowBallSampler_new(
             number_of_nodes=int(args.num_nodes * args.ratio),
             seed=(int(args.seed) * num_sample),
-            k=80,
         )
         new_graph = model.sample(graph)
         result_list, time_used_list = time_sampling_extraction(

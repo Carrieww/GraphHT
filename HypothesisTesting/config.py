@@ -5,11 +5,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
     parser.add_argument(
         "--file_num",
         type=int,
-        default=999,
+        default=100,
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
@@ -34,23 +34,13 @@ def parse_args():
     parser.add_argument(
         "--sampling_ratio",
         type=list,
-        default=[
-            0.1,
-            0.2,
-            0.3,
-            0.4,
-            0.5,
-            0.6,
-            0.7,
-            0.8,
-            0.9,
-        ],  # [0.01,0.02,0.03,0.04,0.05,0.08,0.1,],
+        default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
         help="sampling size list.",
-    )  # default [0.02,0.04,0.06,0.08,0.1,0.15,0.2],[0.2, 0.4, 0.6, 0.8, 0.9]
+    )  # default [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=2,
+        default=5,
         help="number of samples to draw from the original graph.",
     )
 
@@ -59,7 +49,7 @@ def parse_args():
     parser.add_argument(
         "--attribute",
         type=list,
-        default=["Fantasy"],
+        default=["1962", "2008"],
         help="The attributes you want to test hypothesis on.",
     )
     parser.add_argument(
@@ -71,18 +61,31 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=2,
+        default=10,
         help="choosing from: 1, 2...",
     )
     # movielens
-    # hypo 1 (edge attribute): avg rating of advanture movies > 3.6
-    # hypo 2 (variance): the variance/sd of advanture movie ratings is less than 0.01
+    # hypo 1 (degree): avg number of advanture movies rated by users > 80
+    # hypo 2 (node attribute): avg number of genres a movie has is > 5
+    # hypo 3 (edge attribute): avg rating of advanture movies > 3.6
+    # hypo 4 (variance): the variance/sd of advanture movie ratings < 0.01
+
+    # hypo 10 (Node attribute on edge attribute): Adventure movies receive higher ratings than Comedy movies.
 
     # # citation
     # hypo 1 (degree): avg authors of paper in 2008 > 2.6
     # hypo 2 (node attribute): avg citation of paper in 2008 > 2.6
-    # hypo 3 (triangle): number of triangles > 2.6
-    # hypo 4 (path): number of author1-paper1-paper2-author2 > 2.6
-    # hypo
+    # hypo 3 (edge attribute): avg correlation score of papers in 2008 with its related papers > 3.6
+    # hypo 4 (triangle): number of triangles > 2.6
+    # hypo 5: number of author1-paper1-paper2-author2 > 2.6
+
+    # hypo 10 (node attribute): Avg citations of papers in 2008 is higher than that in 1962
+
+    parser.add_argument(
+        "--comparison",
+        type=str,
+        default=">",
+        help="choosing from: !=, ==, >, <",
+    )
 
     return parser.parse_args()

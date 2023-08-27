@@ -26,10 +26,18 @@ def clean():
 
 def logger(args):
     # Create and configure logger
-    args.log_folderPath = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        "log_and_results_" + str(args.attribute[0]),
-    )
+    if len(args.attribute) == 1:
+        args.log_folderPath = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "one_sample",
+            "log_and_results_" + str(args.attribute[0]),
+        )
+    else:
+        args.log_folderPath = os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            "two_sample",
+            "log_and_results_" + str(args.dataset),
+        )
     if args.sampling_method == "SpikyBallS":
         if args.sampling_mode is None:
             args.logger.error(
@@ -39,11 +47,17 @@ def logger(args):
                 "The sampling_mode must be provided for sampling_method SpikyBallS."
             )
         else:
+            if len(args.attribute) == 1:
+                string = str(args.attribute[0][:4])
+            else:
+                string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
             log_filepath = os.path.join(
                 args.log_folderPath,
                 args.dataset
                 + "_hypo"
                 + str(args.hypo)
+                + "_"
+                + string
                 + "_"
                 + args.sampling_method
                 + "_"
@@ -55,11 +69,17 @@ def logger(args):
                 + "_log.log",
             )
     else:
+        if len(args.attribute) == 1:
+            string = str(args.attribute[0][:4])
+        else:
+            string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
         log_filepath = os.path.join(
             args.log_folderPath,
             args.dataset
             + "_hypo"
             + str(args.hypo)
+            + "_"
+            + string
             + "_"
             + args.sampling_method
             + "_"
@@ -100,11 +120,17 @@ def drawAllRatings(args, rating_summary):
     plt.legend()
     plt.title(f"average rating ({args.dataset}) - {args.sampling_method}")
     if args.sampling_method == "SpikyBallS":
+        if len(args.attribute) == 1:
+            string = str(args.attribute[0][:4])
+        else:
+            string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
         args.fig_path = os.path.join(
             args.log_folderPath,
             args.dataset
             + "_hypo"
             + str(args.hypo)
+            + "_"
+            + string
             + "_"
             + args.sampling_method
             + "_"
@@ -116,11 +142,17 @@ def drawAllRatings(args, rating_summary):
             + "_allResult.png",
         )
     else:
+        if len(args.attribute) == 1:
+            string = str(args.attribute[0][:4])
+        else:
+            string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
         args.fig_path = os.path.join(
             args.log_folderPath,
             args.dataset
             + "_hypo"
             + str(args.hypo)
+            + "_"
+            + string
             + "_"
             + args.sampling_method
             + "_"
@@ -135,24 +167,28 @@ def drawAllRatings(args, rating_summary):
 def print_hypo_log(args, t_stat, p_value, H0, **kwargs):
     args.logger.info("")
     args.logger.info("[Hypothesis Testing Results]")
-    assert len(kwargs) == 1, f"Only one kwargs is allowed! eg twoSide or oneSide"
-    for key, value in kwargs.items():
-        if key == "twoSides":
-            args.logger.info(f"H0: {H0} == {args.ground_truth}.")
-            args.logger.info(f"H1: {H0} != {args.ground_truth}.")
-        elif key == "oneSide":
-            if value == "lower":
-                args.logger.info(f"H0: {H0} = {args.popmean_lower}.")
-                args.logger.info(f"H1: {H0} > {args.popmean_lower}.")
-            elif value == "higher":
-                args.logger.info(f"H0: {H0} = {args.popmean_higher}.")
-                args.logger.info(f"H1: {H0} < {args.popmean_higher}.")
+
+    if args.HTtype == "one-sample":
+        assert len(kwargs) == 1, f"Only one kwargs is allowed! eg twoSide or oneSide"
+        for key, value in kwargs.items():
+            if key == "twoSides":
+                args.logger.info(f"H0: {H0} == {args.ground_truth}.")
+                args.logger.info(f"H1: {H0} != {args.ground_truth}.")
+            elif key == "oneSide":
+                if value == "lower":
+                    args.logger.info(f"H0: {H0} = {args.popmean_lower}.")
+                    args.logger.info(f"H1: {H0} > {args.popmean_lower}.")
+                elif value == "higher":
+                    args.logger.info(f"H0: {H0} = {args.popmean_higher}.")
+                    args.logger.info(f"H1: {H0} < {args.popmean_higher}.")
+                else:
+                    args.logging.error(f"Sorry, we don't support {value} for {key}.")
+                    raise Exception(f"Sorry, we don't support {value} for {key}.")
             else:
-                args.logging.error(f"Sorry, we don't support {value} for {key}.")
-                raise Exception(f"Sorry, we don't support {value} for {key}.")
-        else:
-            args.logging.error(f"Sorry, we don't support {key}.")
-            raise Exception(f"Sorry, we don't support {key}.")
+                args.logging.error(f"Sorry, we don't support {key}.")
+                raise Exception(f"Sorry, we don't support {key}.")
+    else:
+        args.logger.info(f"H0: {H0}.")
 
     args.logger.info(f"T-statistic value: {t_stat}, P-value: {p_value}.")
     if p_value < 0.05:
