@@ -8,8 +8,9 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 from config import parse_args
-from dataprep.citation_prep import citation_prep
-from dataprep.movielens_prep import movielens_prep, moviePreprocess
+
+# from dataprep.citation_prep import citation_prep
+# from dataprep.movielens_prep import movielens_prep, genrePreprocess
 from sampling import (
     CNARW,
     DBS,
@@ -35,6 +36,7 @@ from scipy import stats
 from utils import (
     clean,
     drawAllRatings,
+    get_data,
     logger,
     print_hypo_log,
     setup_device,
@@ -60,26 +62,8 @@ def main():
     # get the graph
     time_dataset_prep = time.time()
     args.dataset_path = os.path.join(os.getcwd(), "datasets", args.dataset)
-    if args.dataset == "movielens":
-        assert args.attribute is not None, f"args.attribute should not be None."
 
-        df_movies = pd.read_csv(os.path.join(args.dataset_path, "movies.csv"))
-        df_ratings = pd.read_csv(os.path.join(args.dataset_path, "ratings.csv"))
-        df_movies = moviePreprocess(df_movies)
-        graph = movielens_prep(args, df_movies, df_ratings)
-
-    elif args.dataset == "citation":
-        assert args.attribute is not None, f"args.attribute should not be None."
-
-        df_paper_author = pd.read_csv(
-            os.path.join(args.dataset_path, "paper_author.csv")
-        )
-        df_paper_paper = pd.read_csv(os.path.join(args.dataset_path, "paper_paper.csv"))
-        graph = citation_prep(args, df_paper_author, df_paper_paper)
-
-    else:
-        args.logger.error(f"Sorry, we don't support {args.dataset}.")
-        raise Exception(f"Sorry, we don't support {args.dataset}.")
+    graph = get_data(args)
 
     print(
         f">>> Total time for dataset {args.dataset} preperation is {round((time.time() - time_dataset_prep),2)}."
@@ -96,10 +80,11 @@ def main():
     )
     args.logger.info(f"{args.dataset} is connected: {nx.is_connected(graph)}.")
 
+    # flag = True
+    # if flag:
+    #     raise Exception("the following is not ready")
     if args.dataset == "movielens":
-        args.ground_truth = getGroundTruth(
-            args, graph, df_movies=df_movies, df_ratings=df_ratings
-        )
+        args.ground_truth = getGroundTruth(args, graph)
     elif args.dataset == "citation":
         args.ground_truth = getGroundTruth(args, graph, df_paper_author=df_paper_author)
 
@@ -133,18 +118,17 @@ def main():
         ##### Hypothesis Testing #####
         ##############################
         if args.HTtype == "one-sample":
+            result_list = [i[args.attribute[0]] for i in result_list]
+            result = sum(result_list) / len(result_list)
             # print percentage error w.r.t. the ground truth
-            percent_error = (
-                100
-                * abs((sum(result_list) / len(result_list)) - args.ground_truth)
-                / args.ground_truth
-            )
+            percent_error = 100 * abs((result) - args.ground_truth) / args.ground_truth
             print(
-                f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+                f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(percent_error,2)}%."
             )
             args.logger.info(
-                f">>> Percentage error w.r.t. the ground truth at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+                f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(percent_error,2)}%."
             )
+
             args.time_result[args.ratio].append(round(percent_error, 2))
 
             args.result[ratio] = result_list
@@ -238,9 +222,9 @@ def getGroundTruth(args, graph, **kwargs):
     time_get_ground_truth = time.time()
     dict_result = {}
     if args.dataset == "movielens":
-        assert len(kwargs) == 2, f"{args.dataset} requires df_movies and df_ratings."
-        df_movies = kwargs["df_movies"]
-        df_ratings = kwargs["df_ratings"]
+        # assert len(kwargs) == 2, f"{args.dataset} requires df_movies and df_ratings."
+        # df_movies = kwargs["df_movies"]
+        # df_ratings = kwargs["df_ratings"]
 
         if args.hypo < 10:
             args.HTtype = "one-sample"
@@ -296,12 +280,13 @@ def getGroundTruth(args, graph, **kwargs):
             dict_result[args.attribute[0]] = df_movies.num_genre.to_list()
 
         elif args.hypo == 3 or args.hypo == 4:
+            from new_graph_hypo_postprocess import getRatings
+
             args.H0 = f"{args.agg} rating of {args.attribute[0]} movies"
-            movie = df_movies.loc[:, ["movieId"] + args.attribute]
-            df_ratings = pd.merge(movie, df_ratings, on="movieId", how="inner")
-            dict_result[args.attribute[0]] = df_ratings[
-                df_ratings[attribute] == 1
-            ].rating.values.tolist()
+            result_dict = nx.get_edge_attributes(graph, name="rating")
+            dict_result[args.attribute[0]] = getRatings(args, graph, result_dict)[
+                args.attribute[0]
+            ]  # {attribute[0]:[1,2,3]}
 
         # two sample hypo
         elif args.hypo == 10:
@@ -328,9 +313,9 @@ def getGroundTruth(args, graph, **kwargs):
             raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
 
     elif args.dataset == "citation":
-        assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
+        # assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
 
-        df_paper_author = kwargs["df_paper_author"]
+        # df_paper_author = kwargs["df_paper_author"]
         # df_paper_paper = kwargs["df_paper_paper"]
         if args.hypo < 10:
             args.HTtype = "one-sample"
@@ -382,31 +367,14 @@ def getGroundTruth(args, graph, **kwargs):
                     dict_result[args.attribute[0]].append(graph.nodes[key]["citation"])
 
         elif args.hypo == 3:
+            from new_graph_hypo_postprocess import getCorrelation
+
             args.H0 = f"{args.agg} correlation score of papers in {args.attribute[0]} with its related papers"
             result_dict = nx.get_edge_attributes(graph, name="correlation")
-            # dict_result = result_dict.values()
-            total_correlation = defaultdict(list)
-            # paper_set = set()
-            for key, value in result_dict.items():
-                from_node, to_node = key
-                # print(from_node, to_node)
-                if graph.nodes[from_node]["year"] == int(args.attribute[0]):
-                    total_correlation[from_node].append(value)
 
-                elif graph.nodes[to_node]["year"] == int(args.attribute[0]):
-                    total_correlation[to_node].append(value)
-            if len(total_correlation) == 0:
-                raise Exception(
-                    f"No nodes with valid correlation can generate the ground truth."
-                )
-
-            # dict_result = list(map(mean, list(total_correlation.values())))
-            value_list = list(total_correlation.values())
-            dict_result[args.attribute[0]] = list(
-                map(lambda idx: sum(idx) / float(len(idx)), value_list)
-            )
-
-            # dict_result = [sum(nx.triangles(graph).values()) / 3]
+            dict_result[args.attribute[0]] = getCorrelation(args, graph, result_dict)[
+                args.attribute[0]
+            ]  # {attribute[0]:[1,2,3]}
 
         elif args.hypo == 4:
             args.H0 = f"{args.agg} number of triangles"

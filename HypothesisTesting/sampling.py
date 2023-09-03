@@ -30,10 +30,16 @@ def RNNS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = RandomNodeNeighborSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -52,10 +58,16 @@ def SRW(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = RandomWalkSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -74,12 +86,17 @@ def FFS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = ForestFireSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
             p=0.4,
-            max_visited_nodes_backlog=int(args.num_nodes * args.ratio),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -98,10 +115,16 @@ def ShortestPathS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = ShortestPathSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -119,11 +142,17 @@ def MHRWS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = MetropolisHastingsRandomWalkSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
             alpha=0.5,
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -184,10 +213,16 @@ def CommunitySES(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = CommunityStructureExpansionSampler_new(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -205,10 +240,16 @@ def NBRW(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = NonBackTrackingRandomWalkSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -260,10 +301,16 @@ def SBS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = SnowBallSampler_new(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -305,11 +352,17 @@ def RW_Starter(args, graph, result_list, time_used_list):
         time_one_sample_start = time.time()
         # print(f"start sampling time: {time_one_sample_start}")
         model = RandomWalkWithRestartSampler_new(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
             p=0.01,
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -394,16 +447,22 @@ def FrontierS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = FrontierSampler_new(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
-        print(
-            f"The new_graph from FrontierS is connected: {nx.is_connected(new_graph)}."
-        )
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
         args.logger.info(
-            f"The new_graph from FrontierS is connected: {nx.is_connected(new_graph)}."
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
+        # print(
+        #     f"The new_graph from FrontierS is connected: {nx.is_connected(new_graph)}."
+        # )
+        # args.logger.info(
+        #     f"The new_graph from FrontierS is connected: {nx.is_connected(new_graph)}."
+        # )
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -437,10 +496,16 @@ def CNARW(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = CommonNeighborAwareRandomWalkSampler_new(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -463,10 +528,16 @@ def RNS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = RandomNodeSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -484,10 +555,16 @@ def DBS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = DegreeBasedSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -505,10 +582,16 @@ def PRBS(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = PageRankBasedSampler(
-            number_of_nodes=int(args.num_nodes * args.ratio),
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -549,10 +632,16 @@ def RES(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = RandomEdgeSampler_new(
-            number_of_edges=int(args.num_edges * args.ratio),
+            number_of_edges=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -588,10 +677,16 @@ def RNES(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = RandomNodeEdgeSampler_new(
-            number_of_edges=int(args.num_edges * args.ratio),
+            number_of_edges=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -609,10 +704,16 @@ def RES_Induction(args, graph, result_list, time_used_list):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = RandomEdgeSamplerWithInduction(
-            number_of_edges=int(args.num_edges * args.ratio),
+            number_of_edges=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,

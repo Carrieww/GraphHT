@@ -3,6 +3,8 @@ import time
 from collections import defaultdict
 
 import networkx as nx
+from scipy import stats
+from utils import print_hypo_log
 
 
 def new_graph_hypo_result(args, new_graph, result_list, num_sample):
@@ -20,8 +22,9 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
         # edge attribute mean and variance
         elif args.hypo == 3 or args.hypo == 4:
             result_dict = nx.get_edge_attributes(new_graph, name="rating")
-            result = getRatings(args, new_graph, result_dict)[args.attribute[0]]
-            args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
+            total_result = getRatings(args, new_graph, result_dict)
+            # return is a list
+            # args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
 
         ##### two side #####
         elif args.hypo == 10:
@@ -49,7 +52,7 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
         # edge attribute
         elif args.hypo == 3:
             result_dict = nx.get_edge_attributes(new_graph, name="correlation")
-            result = getCorrelation(args, new_graph, result_dict)
+            total_result = getCorrelation(args, new_graph, result_dict)
 
         # number of triangles
         elif args.hypo == 4:
@@ -60,42 +63,67 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
             result = getCitations(args, new_graph)
         else:
             raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
+
+    result = {}
+    for attribute, v in total_result.items():
+        if args.agg == "mean":
+            ### TODO: add hypothesis testing here!!
+            t_stat, p_value = stats.ttest_1samp(
+                v, popmean=args.ground_truth, alternative="two-sided"
+            )
+            print_hypo_log(args, t_stat, p_value, args.H0, twoSides=True)
+
+            result[attribute] = sum(v) / len(v)
+        elif args.agg == "max":
+            result[attribute] = max(v)
+        elif args.agg == "min":
+            result[attribute] = min(v)
+        elif args.agg == "variance":
+            result[attribute] = statistics.variance(v)
+        else:
+            args.logger.error(f"Sorry, we don't support {args.agg}.")
+            raise Exception(f"Sorry, we don't support {args.agg}.")
+
     result_list.append(result)
     return result_list
 
 
 def getCorrelation(args, new_graph, result_dict):
     total_correlation = defaultdict(list)
-    # paper_set = set()
+
     for key, value in result_dict.items():
         from_node, to_node = key
         # print(from_node, to_node)
         if new_graph.nodes[from_node]["year"] == int(args.attribute[0]):
-            total_correlation[from_node].append(value)
+            for attribute in args.attribute:
+                total_correlation[attribute].append(value)
 
         elif new_graph.nodes[to_node]["year"] == int(args.attribute[0]):
-            total_correlation[to_node].append(value)
+            for attribute in args.attribute:
+                total_correlation[attribute].append(value)
 
-    if len(total_correlation) == 0:
-        raise Exception(
-            f"No nodes with valid correlation satisfying the current hypothesis and sampling ratio."
-        )
-    # total_correlation = list(map(sum, list(total_correlation.values())))
-    value_list = list(total_correlation.values())
-    total_correlation = list(map(lambda idx: sum(idx) / float(len(idx)), value_list))
+    return total_correlation
 
-    if args.agg == "mean":
-        result = sum(total_correlation) / len(total_correlation)
-    elif args.agg == "max":
-        result = max(total_correlation)
-    elif args.agg == "min":
-        result = min(total_correlation)
-    elif args.agg == "variance":
-        result = statistics.variance(total_correlation)
-    else:
-        args.logger.error(f"Sorry, we don't support {args.agg}.")
-        raise Exception(f"Sorry, we don't support {args.agg}.")
-    return result
+    # if len(total_correlation) == 0:
+    #     raise Exception(
+    #         f"No nodes with valid correlation satisfying the current hypothesis and sampling ratio."
+    #     )
+    # # total_correlation = list(map(sum, list(total_correlation.values())))
+    # value_list = list(total_correlation.values())
+    # total_correlation = list(map(lambda idx: sum(idx) / float(len(idx)), value_list))
+
+    # if args.agg == "mean":
+    #     result = sum(total_correlation) / len(total_correlation)
+    # elif args.agg == "max":
+    #     result = max(total_correlation)
+    # elif args.agg == "min":
+    #     result = min(total_correlation)
+    # elif args.agg == "variance":
+    #     result = statistics.variance(total_correlation)
+    # else:
+    #     args.logger.error(f"Sorry, we don't support {args.agg}.")
+    #     raise Exception(f"Sorry, we don't support {args.agg}.")
+    # return result
 
 
 def getGenres(args, new_graph):
@@ -203,32 +231,16 @@ def getRatings(args, new_graph, result_dict):
 
     for key, value in result_dict.items():
         from_node, to_node = key
-        if new_graph.nodes[from_node]["label"] == "movie":
+        if new_graph.nodes[from_node]["label"] == "article":
             for attribute in args.attribute:
                 if new_graph.nodes[from_node][attribute] == 1:
                     total_rating[attribute].append(value)
-        elif new_graph.nodes[to_node]["label"] == "movie":
+        elif new_graph.nodes[to_node]["label"] == "article":
             for attribute in args.attribute:
                 if new_graph.nodes[to_node][attribute] == 1:
                     total_rating[attribute].append(value)
 
-    if len(total_rating) == 0:
-        raise Exception(f"No qualified edges can be extracted.")
-
-    result = {}
-    for attribute, v in total_rating.items():
-        if args.agg == "mean":
-            result[attribute] = sum(v) / len(v)
-        elif args.agg == "max":
-            result[attribute] = max(total_rating)
-        elif args.agg == "min":
-            result[attribute] = min(total_rating)
-        elif args.agg == "variance":
-            result[attribute] = statistics.variance(total_rating)
-        else:
-            args.logger.error(f"Sorry, we don't support {args.agg}.")
-            raise Exception(f"Sorry, we don't support {args.agg}.")
-    return result
+    return total_rating
 
 
 def getAuthors(args, new_graph):

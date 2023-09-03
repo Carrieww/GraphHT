@@ -1,4 +1,7 @@
 import argparse
+from pathlib import Path
+
+ROOT_DIR = Path(__file__).parent
 
 
 def parse_args():
@@ -34,13 +37,13 @@ def parse_args():
     parser.add_argument(
         "--sampling_ratio",
         type=list,
-        default=[0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+        default=[500],
         help="sampling size list.",
     )  # default [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=5,
+        default=10,
         help="number of samples to draw from the original graph.",
     )
 
@@ -49,7 +52,7 @@ def parse_args():
     parser.add_argument(
         "--attribute",
         type=list,
-        default=["1962", "2008"],
+        default=["2000"],
         help="The attributes you want to test hypothesis on.",
     )
     parser.add_argument(
@@ -61,7 +64,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=10,
+        default=3,
         help="choosing from: 1, 2...",
     )
     # movielens

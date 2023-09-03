@@ -4,9 +4,13 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from dataprep.citation_prep import citation_prep
+from dataprep.movielens_prep import movielens_prep
+from dataprep.yelp_prep import yelp_prep
 
 
 def setup_device(args):
@@ -201,3 +205,20 @@ def print_hypo_log(args, t_stat, p_value, H0, **kwargs):
         )
 
     return 0
+
+
+def get_data(args):
+    assert args.attribute is not None, f"args.attribute should not be None."
+    if args.dataset == "movielens":
+        return movielens_prep(args)
+
+    elif args.dataset == "yelp":
+        return yelp_prep(args)
+
+    elif args.dataset == "citation":
+        graph = citation_prep(args)
+        return graph
+
+    else:
+        args.logger.error(f"Sorry, we don't support {args.dataset}.")
+        raise Exception(f"Sorry, we don't support {args.dataset}.")
