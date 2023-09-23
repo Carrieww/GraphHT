@@ -2,6 +2,7 @@ import time
 
 import networkx as nx
 import numpy as np
+
 from new_graph_hypo_postprocess import new_graph_hypo_result
 
 
@@ -15,6 +16,7 @@ def time_sampling_extraction(
 
     time_rating_extraction_start = time.time()
     result_list = new_graph_hypo_result(args, new_graph, result_list, num_sample)
+    # time_used_list["length"] = length
     time_used_list["sample_graph_by_condition"].append(
         round(time.time() - time_rating_extraction_start, 2)
     )
@@ -24,7 +26,7 @@ def time_sampling_extraction(
 ##############################
 ######## Exploration #########
 ##############################
-def RNNS(args, graph, result_list, time_used_list):
+def RNNS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import RandomNodeNeighborSampler
 
     for num_sample in range(args.num_samples):
@@ -36,6 +38,8 @@ def RNNS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -52,7 +56,7 @@ def RNNS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def SRW(args, graph, result_list, time_used_list):
+def SRW(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import RandomWalkSampler
 
     for num_sample in range(args.num_samples):
@@ -64,6 +68,8 @@ def SRW(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -80,7 +86,7 @@ def SRW(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def FFS(args, graph, result_list, time_used_list):
+def FFS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import ForestFireSampler
 
     for num_sample in range(args.num_samples):
@@ -93,6 +99,8 @@ def FFS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -109,7 +117,7 @@ def FFS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def ShortestPathS(args, graph, result_list, time_used_list):
+def ShortestPathS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import ShortestPathSampler
 
     for num_sample in range(args.num_samples):
@@ -119,8 +127,12 @@ def ShortestPathS(args, graph, result_list, time_used_list):
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
+        # if ((time.time() - time_one_sample_start) / 60) > 15:
+        #     raise Exception(f"Sampling once takes more than 15 minites so we stop.")
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -136,7 +148,7 @@ def ShortestPathS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def MHRWS(args, graph, result_list, time_used_list):
+def MHRWS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import MetropolisHastingsRandomWalkSampler
 
     for num_sample in range(args.num_samples):
@@ -149,6 +161,8 @@ def MHRWS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -164,7 +178,7 @@ def MHRWS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def CommunitySES(args, graph, result_list, time_used_list):
+def CommunitySES(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import CommunityStructureExpansionSampler
 
     class CommunityStructureExpansionSampler_new(CommunityStructureExpansionSampler):
@@ -219,6 +233,13 @@ def CommunitySES(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+
+        # if ((time.time() - time_one_sample_start) / 60) > 15:
+        #     print(num_nodes, num_edges)
+        #     raise Exception(f"Sampling once takes more than 15 minites so we stop.")
+
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -234,7 +255,7 @@ def CommunitySES(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def NBRW(args, graph, result_list, time_used_list):
+def NBRW(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import NonBackTrackingRandomWalkSampler
 
     for num_sample in range(args.num_samples):
@@ -246,6 +267,8 @@ def NBRW(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -261,7 +284,7 @@ def NBRW(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def SBS(args, graph, result_list, time_used_list):
+def SBS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import SnowBallSampler
 
     class SnowBallSampler_new(SnowBallSampler):
@@ -307,6 +330,8 @@ def SBS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -322,7 +347,7 @@ def SBS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def RW_Starter(args, graph, result_list, time_used_list):
+def RW_Starter(args, graph, result_list, time_used_list, find_stop=False):
     import random
 
     from littleballoffur import RandomWalkWithRestartSampler
@@ -359,6 +384,8 @@ def RW_Starter(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -374,7 +401,7 @@ def RW_Starter(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def FrontierS(args, graph, result_list, time_used_list):
+def FrontierS(args, graph, result_list, time_used_list, find_stop=False):
     import random
 
     from littleballoffur import FrontierSampler
@@ -453,6 +480,8 @@ def FrontierS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -474,7 +503,7 @@ def FrontierS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def CNARW(args, graph, result_list, time_used_list):
+def CNARW(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import CommonNeighborAwareRandomWalkSampler
 
     class CommonNeighborAwareRandomWalkSampler_new(
@@ -502,6 +531,8 @@ def CNARW(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -522,7 +553,7 @@ def CNARW(args, graph, result_list, time_used_list):
 ###############################
 
 
-def RNS(args, graph, result_list, time_used_list):
+def RNS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import RandomNodeSampler
 
     for num_sample in range(args.num_samples):
@@ -534,6 +565,8 @@ def RNS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -549,7 +582,7 @@ def RNS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def DBS(args, graph, result_list, time_used_list):
+def DBS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import DegreeBasedSampler
 
     for num_sample in range(args.num_samples):
@@ -561,6 +594,8 @@ def DBS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -576,7 +611,7 @@ def DBS(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def PRBS(args, graph, result_list, time_used_list):
+def PRBS(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import PageRankBasedSampler
 
     for num_sample in range(args.num_samples):
@@ -588,6 +623,8 @@ def PRBS(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -608,7 +645,7 @@ def PRBS(args, graph, result_list, time_used_list):
 ###############################
 
 
-def RES(args, graph, result_list, time_used_list):
+def RES(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import RandomEdgeSampler
 
     class RandomEdgeSampler_new(RandomEdgeSampler):
@@ -638,6 +675,8 @@ def RES(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -653,7 +692,7 @@ def RES(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def RNES(args, graph, result_list, time_used_list):
+def RNES(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import RandomNodeEdgeSampler
 
     class RandomNodeEdgeSampler_new(RandomNodeEdgeSampler):
@@ -683,6 +722,8 @@ def RNES(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
@@ -698,7 +739,7 @@ def RNES(args, graph, result_list, time_used_list):
     return result_list, time_used_list
 
 
-def RES_Induction(args, graph, result_list, time_used_list):
+def RES_Induction(args, graph, result_list, time_used_list, find_stop=False):
     from littleballoffur import RandomEdgeSamplerWithInduction
 
     for num_sample in range(args.num_samples):
@@ -710,6 +751,8 @@ def RES_Induction(args, graph, result_list, time_used_list):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
         args.logger.info(
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )

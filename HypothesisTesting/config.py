@@ -8,7 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
     parser.add_argument(
         "--file_num",
         type=int,
@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument(
         "--sampling_method",
         type=str,
-        default="RES_Induction",
+        default="MHRWS",
         help="sampling method.",
     )
     parser.add_argument(
@@ -37,7 +37,14 @@ def parse_args():
     parser.add_argument(
         "--sampling_ratio",
         type=list,
-        default=[500],
+        default=[
+            85,
+            120,
+            155,
+            180,
+            400,
+            700,
+        ],  # [5000, 10000, 15000, 20000, 45000, 85000, 500000],  #
         help="sampling size list.",
     )  # default [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
     parser.add_argument(
@@ -51,8 +58,10 @@ def parse_args():
     # now only support one-sample hypothesis on attributes
     parser.add_argument(
         "--attribute",
-        type=list,
-        default=["2000"],
+        type=dict,
+        default={
+            "1-4": {"edge": "rating", "user": {"gender": "F"}}
+        },  # , "article": {"Adventure": 1}}},
         help="The attributes you want to test hypothesis on.",
     )
     parser.add_argument(

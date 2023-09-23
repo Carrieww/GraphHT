@@ -8,9 +8,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 from config import parse_args
-
-# from dataprep.citation_prep import citation_prep
-# from dataprep.movielens_prep import movielens_prep, genrePreprocess
+from new_graph_hypo_postprocess import getEdges, getGenres
 from sampling import (
     CNARW,
     DBS,
@@ -80,16 +78,87 @@ def main():
     )
     args.logger.info(f"{args.dataset} is connected: {nx.is_connected(graph)}.")
 
-    # flag = True
-    # if flag:
-    #     raise Exception("the following is not ready")
+    # look for
+    # if args.hypo == 2:
+    #     # keep node size
+    #     if args.sampling_method == "RES" or args.sampling_method == "RES_Induction":
+    #         default_num_samples = args.num_samples
+    #         default_sampling_ratio = args.sampling_ratio
+    #         args.num_samples = 1
+    #         if args.dataset == "movielens":
+    #             sampling_ratio_start = 50
+    #             sampling_ratio_end = 5000
+    #             jump = 20
+    #         elif args.dataset == "citation":
+    #             raise Exception("not pre-set")
+    #         elif args.dataset == "yelp":
+    #             sampling_ratio_start = 30000
+    #             sampling_ratio_end = 1500000
+    #             jump = 5000
+    #             threshold = 4000
+
+    #         sampling_ratio = []
+    #         while default_sampling_ratio != []:
+    #             sampling_ratio_start = search(
+    #                 args,
+    #                 graph,
+    #                 sampling_ratio_start,
+    #                 sampling_ratio_end,
+    #                 jump,
+    #                 threshold,
+    #                 default_sampling_ratio[0],
+    #             )
+    #             sampling_ratio_start
+    #             sampling_ratio.append(sampling_ratio_start)
+    #             print(sampling_ratio)
+    #             default_sampling_ratio = default_sampling_ratio[1:]
+
+    #         args.num_samples = default_num_samples
+    #         args.sampling_ratio = sampling_ratio
+    #         print(args.sampling_ratio)
+
+    #         # sampling_ratio = []
+    #         # for size in range(sampling_ratio_start, sampling_ratio_end, jump):
+    #         #     args.sampling_ratio = [size]
+    #         #     result_list = samplingGraph(args, graph, True)
+    #         #     num_node = result_list[0]
+    #         #     if abs(default_sampling_ratio[0] - num_node) < threshold:
+    #         #         sampling_ratio.append(size)
+    #         #         default_sampling_ratio = default_sampling_ratio[1:]
+    #         #         if default_sampling_ratio == []:
+    #         #             args.sampling_ratio = sampling_ratio
+    #         #             args.num_samples = default_num_samples
+    #         #             break
+
+    # elif args.hypo == 3:
+    #     # keep edge size
+    #     if args.sampling_method != "RES":
+    #         default_num_samples = args.num_samples
+    #         default_sampling_ratio = args.sampling_ratio
+    #         args.num_samples = 1
+    #         if args.dataset == "movielens":
+    #             sampling_ratio_start = 50
+    #             sampling_ratio_end = 1000
+    #             jump = 20
+    #         elif args.dataset == "citation":
+    #             raise Exception("not pre-set")
+    #         elif args.dataset == "yelp":
+    #             sampling_ratio_start = 5000
+    #             sampling_ratio_end = 100000
+    #             jump = 2000
+    #             threshold = 2000
+    # else:
+    #     pass
+
     if args.dataset == "movielens":
         args.ground_truth = getGroundTruth(args, graph)
     elif args.dataset == "citation":
-        args.ground_truth = getGroundTruth(args, graph, df_paper_author=df_paper_author)
+        args.ground_truth = getGroundTruth(args, graph)
+    elif args.dataset == "yelp":
+        args.ground_truth = getGroundTruth(args, graph)
 
     if args.HTtype == "one-sample":
-        args.ground_truth = args.ground_truth[args.attribute[0]]
+        args.ground_truth = args.ground_truth[str(list(args.attribute.keys())[0])]
         args.CI = []
         args.popmean_lower = round(args.ground_truth - 0.05, 2)
         args.popmean_higher = round(args.ground_truth + 0.05, 2)
@@ -98,11 +167,23 @@ def main():
     args.result = defaultdict(list)
     args.time_result = defaultdict(list)
     for ratio in args.sampling_ratio:
+        # args.time_limit=time.time()
+        args.valid_edges = []
+        args.variance = []
         time_ratio_start = time.time()
         args.ratio = ratio
         args.logger.info(" ")
         args.logger.info(f">>> sampling ratio: {args.ratio}")
-        result_list = samplingGraph(args, graph)
+        result_list = samplingGraph(args, graph, False)
+
+        print(
+            f"average valid nodes/edges are {sum(args.valid_edges)/len(args.valid_edges)}"
+        )
+        print(f"average variance is {sum(args.variance)/len(args.variance)}")
+        args.logger.info(
+            f"average valid nodes/edges are {sum(args.valid_edges)/len(args.valid_edges)}"
+        )
+        args.logger.info(f"average variance is {sum(args.variance)/len(args.variance)}")
 
         # print total time used
         total_time = time.time() - time_ratio_start
@@ -118,7 +199,8 @@ def main():
         ##### Hypothesis Testing #####
         ##############################
         if args.HTtype == "one-sample":
-            result_list = [i[args.attribute[0]] for i in result_list]
+            # print(result_list)
+            result_list = [i[str(list(args.attribute.keys())[0])] for i in result_list]
             result = sum(result_list) / len(result_list)
             # print percentage error w.r.t. the ground truth
             percent_error = 100 * abs((result) - args.ground_truth) / args.ground_truth
@@ -139,10 +221,6 @@ def main():
             )
         elif args.HTtype == "two-sample":
             result_list_new = defaultdict(list)
-            # ground_truth = abs(
-            #     args.ground_truth[args.attribute[0]]
-            #     - args.ground_truth[args.attribute[1]]
-            # )
 
             value = []
             for attribute in args.attribute:
@@ -152,8 +230,8 @@ def main():
 
             percent_error_0 = (
                 100
-                * abs(value[0] - args.ground_truth[args.attribute[0]])
-                / args.ground_truth[args.attribute[0]]
+                * abs(value[0] - args.ground_truth[str(list(args.attribute.keys())[0])])
+                / args.ground_truth[str(list(args.attribute.keys())[0])]
             )
             percent_error_1 = (
                 100
@@ -162,18 +240,22 @@ def main():
             )
 
             percent_error = (percent_error_0 + percent_error_1) / 2
-            print(f">>> {args.attribute[0]}: sampled result is {value[0]}.")
+            print(
+                f">>> {str(list(args.attribute.keys())[0])}: sampled result is {value[0]}."
+            )
             print(f">>> {args.attribute[1]}: sampled result is {value[1]}.")
-            args.logger.info(f">>> {args.attribute[0]}: sampled result is {value[0]}.")
+            args.logger.info(
+                f">>> {str(list(args.attribute.keys())[0])}: sampled result is {value[0]}."
+            )
             args.logger.info(f">>> {args.attribute[1]}: sampled result is {value[1]}.")
             print(
-                f">>> Percentage error of {args.attribute[0]} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
+                f">>> Percentage error of {str(list(args.attribute.keys())[0])} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
             )
             print(
                 f">>> Percentage error of {args.attribute[1]} at {args.ratio} sampling ratio is {round(percent_error_1,2)}%."
             )
             args.logger.info(
-                f">>> Percentage error of {args.attribute[0]} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
+                f">>> Percentage error of {str(list(args.attribute.keys())[0])} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
             )
             args.logger.info(
                 f">>> Percentage error of {args.attribute[1]} at {args.ratio} sampling ratio is {round(percent_error_1,2)}%."
@@ -198,8 +280,8 @@ def main():
     headers = [
         "Sampling time",
         "Target extraction time",
-        "Percentage error",
         "HT time",
+        "Percentage error",
     ]
 
     print(
@@ -211,8 +293,8 @@ def main():
 
     for _, value in args.time_result.items():
         # print(value)
-        print(f"{value[0]: <25}{value[1]: <25}{value[2]:<25}{value[3]:<25}")
-        args.logger.info(f"{value[0]: <25}{value[1]: <25}{value[2]:<25}{value[3]:<25}")
+        print(f"{value[0]: <25}{value[1]: <25}{value[3]:<25}{value[2]:<25}")
+        args.logger.info(f"{value[0]: <25}{value[1]: <25}{value[3]:<25}{value[2]:<25}")
     print(
         f"All hypothesis testing for ratio list {args.sampling_ratio} and ploting is finished!"
     )
@@ -221,71 +303,59 @@ def main():
 def getGroundTruth(args, graph, **kwargs):
     time_get_ground_truth = time.time()
     dict_result = {}
-    if args.dataset == "movielens":
-        # assert len(kwargs) == 2, f"{args.dataset} requires df_movies and df_ratings."
-        # df_movies = kwargs["df_movies"]
-        # df_ratings = kwargs["df_ratings"]
 
-        if args.hypo < 10:
-            args.HTtype = "one-sample"
+    # chekc if the hypothesis is one-sample or two-sample by their length of attribute list
+    if args.hypo < 10:
+        args.HTtype = "one-sample"
 
-            if (args.attribute is not None) and (len(args.attribute) == 1):
-                attribute = args.attribute[0]
-            else:
-                args.logger.error(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
-                )
-
-                raise Exception(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
-                )
+        if (args.attribute is not None) and (len(args.attribute) == 1):
+            # attribute = str(list(args.attribute.keys())[0])
+            pass
         else:
-            args.HTtype = "two-sample"
-            assert (
-                args.comparison is not None
-            ), f"{args.dataset} requires the args.comparison parameter."
+            args.logger.error(
+                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            )
 
-            if (args.attribute is not None) and (len(args.attribute) == 2):
-                pass
-            else:
-                args.logger.error(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
-                )
+            raise Exception(
+                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            )
+    else:
+        args.HTtype = "two-sample"
+        assert (
+            args.comparison is not None
+        ), f"{args.dataset} requires the args.comparison parameter."
 
-                raise Exception(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
-                )
+        if (args.attribute is not None) and (len(args.attribute) == 2):
+            pass
+        else:
+            args.logger.error(
+                f"Sorry, args.attribute is None or len(args.attribute) != 2."
+            )
 
+            raise Exception(
+                f"Sorry, args.attribute is None or len(args.attribute) != 2."
+            )
+
+    if args.dataset == "movielens":
         if args.hypo == 1:
             args.H0 = f"{args.agg} number of {args.attribute[0]} movies rated by users"
-            df_movies = df_movies[df_movies[attribute] == 1]
+            df_movies = df_movies[df_movies[args.attribute[0]] == 1]
             df_ratings = pd.merge(df_ratings, df_movies, on="movieId", how="inner")
             df_ratings = df_ratings.groupby("userId").count()
             dict_result[args.attribute[0]] = df_ratings.movieId.to_list()
 
         elif args.hypo == 2:
-            args.H0 = f"{args.agg} number of genres {args.attribute[0]} movies have"
+            args.H0 = f"{args.agg} number of genres {str(list(args.attribute.keys())[0])} movies have"
+            dict_result[str(list(args.attribute.keys())[0])] = getGenres(
+                args, graph, dimension={"movie": "genre"}
+            )[str(list(args.attribute.keys())[0])]
 
-            # genre_list=df_movies.columns[3:df_movies.shape[1]-1]
-            genre_list = [
-                "Adventure",
-                "Comedy",
-                "Fantasy",
-                "Children",
-                "Romance",
-                "Drama",
-                "Thriller",
-            ]
-            df_movies["num_genre"] = df_movies[genre_list].sum(axis=1)
-            dict_result[args.attribute[0]] = df_movies.num_genre.to_list()
-
-        elif args.hypo == 3 or args.hypo == 4:
-            from new_graph_hypo_postprocess import getRatings
-
-            args.H0 = f"{args.agg} rating of {args.attribute[0]} movies"
-            result_dict = nx.get_edge_attributes(graph, name="rating")
-            dict_result[args.attribute[0]] = getRatings(args, graph, result_dict)[
-                args.attribute[0]
+        elif args.hypo == 3:
+            args.H0 = (
+                f"{args.agg} rating of {str(list(args.attribute.keys())[0])} movies"
+            )
+            dict_result[str(list(args.attribute.keys())[0])] = getEdges(args, graph)[
+                str(list(args.attribute.keys())[0])
             ]  # {attribute[0]:[1,2,3]}
 
         # two sample hypo
@@ -313,40 +383,6 @@ def getGroundTruth(args, graph, **kwargs):
             raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
 
     elif args.dataset == "citation":
-        # assert len(kwargs) == 1, f"{args.dataset} requires df_paper_author."
-
-        # df_paper_author = kwargs["df_paper_author"]
-        # df_paper_paper = kwargs["df_paper_paper"]
-        if args.hypo < 10:
-            args.HTtype = "one-sample"
-
-            if (args.attribute is not None) and (len(args.attribute) == 1):
-                # attribute = args.attribute[0]
-                pass
-            else:
-                args.logger.error(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
-                )
-
-                raise Exception(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 1."
-                )
-        else:
-            args.HTtype = "two-sample"
-            assert (
-                args.comparison is not None
-            ), f"{args.dataset} requires the args.comparison parameter."
-
-            if (args.attribute is not None) and (len(args.attribute) == 2):
-                pass
-            else:
-                args.logger.error(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
-                )
-
-                raise Exception(
-                    f"Sorry, args.attribute is None or len(args.attribute) != 2."
-                )
         if args.hypo == 1:
             args.H0 = f"{args.agg} authors of papers in {args.attribute[0]}"
             if args.attribute is not None:
@@ -359,21 +395,15 @@ def getGroundTruth(args, graph, **kwargs):
                 args.logger.error(f"Sorry, args.attribute is None.")
                 raise Exception(f"Sorry, args.attribute is None.")
         elif args.hypo == 2:
-            args.H0 = f"{args.agg} citation of papers in {args.attribute[0]}"
-            dict_result[args.attribute[0]] = []
-            node_attribute = nx.get_node_attributes(graph, "year")
-            for key, value in node_attribute.items():
-                if value == int(args.attribute[0]):
-                    dict_result[args.attribute[0]].append(graph.nodes[key]["citation"])
+            args.H0 = f"{args.agg} citation of papers in {str(list(args.attribute.keys())[0])}"
+            dict_result[str(list(args.attribute.keys())[0])] = getGenres(
+                args, graph, dimension={"paper": "citation"}
+            )[str(list(args.attribute.keys())[0])]
 
         elif args.hypo == 3:
-            from new_graph_hypo_postprocess import getCorrelation
-
-            args.H0 = f"{args.agg} correlation score of papers in {args.attribute[0]} with its related papers"
-            result_dict = nx.get_edge_attributes(graph, name="correlation")
-
-            dict_result[args.attribute[0]] = getCorrelation(args, graph, result_dict)[
-                args.attribute[0]
+            args.H0 = f"{args.agg} correlation score of papers in {str(list(args.attribute.keys())[0])} with its related papers"
+            dict_result[str(list(args.attribute.keys())[0])] = getEdges(args, graph)[
+                str(list(args.attribute.keys())[0])
             ]  # {attribute[0]:[1,2,3]}
 
         elif args.hypo == 4:
@@ -402,8 +432,32 @@ def getGroundTruth(args, graph, **kwargs):
                 f"Sorry, {args.hypo} is not supported for {args.dataset}."
             )
             raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+    elif args.dataset == "yelp":
+        if args.hypo == 3:
+            args.H0 = f"{args.agg} stars  in {str(list(args.attribute.keys())[0])}"
 
-    if len(dict_result[args.attribute[0]]) == 0:
+            dict_result[str(list(args.attribute.keys())[0])] = getEdges(args, graph)[
+                str(list(args.attribute.keys())[0])
+            ]  # {attribute[0]:[1,2,3]}
+            import collections
+
+            frequency = collections.Counter(
+                dict_result[str(list(args.attribute.keys())[0])]
+            )
+            print(dict(frequency))
+        elif args.hypo == 2:
+            args.H0 = f"{args.agg} number of stars {str(list(args.attribute.keys())[0])} restaurants have"
+            dict_result[str(list(args.attribute.keys())[0])] = getGenres(
+                args, graph, dimension={"business": "stars"}
+            )[str(list(args.attribute.keys())[0])]
+
+        else:
+            args.logger.error(
+                f"Sorry, {args.hypo} is not supported for {args.dataset}."
+            )
+            raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+
+    if len(dict_result[str(list(args.attribute.keys())[0])]) == 0:
         args.logger.error(
             f"The graph contains no node/edge satisfying the hypothesis, you may need to change the attribute."
         )
@@ -411,6 +465,12 @@ def getGroundTruth(args, graph, **kwargs):
             f"The graph contains no node/edge satisfying the hypothesis, you may need to change the attribute."
         )
 
+    print(
+        f"total number of valid nodes/edges {len(dict_result[str(list(args.attribute.keys())[0])])}"
+    )
+    args.logger.info(
+        f"total number of valid nodes/edges {len(dict_result[str(list(args.attribute.keys())[0])])}"
+    )
     # check aggregation method
     ground_truth = {}
     for k, v in dict_result.items():
@@ -444,6 +504,9 @@ def HypothesisTesting(args, result_list, verbose=1):
     #################################
     if args.HTtype == "one-sample":
         # Two side HT
+        # variance = statistics.variance(result_list)
+        # print(f"The variance is {round(variance,3)}.")
+        # args.logger.info(f"The variance is {round(variance,3)}.")
         t_stat, p_value = stats.ttest_1samp(
             result_list, popmean=args.ground_truth, alternative="two-sided"
         )
@@ -459,7 +522,7 @@ def HypothesisTesting(args, result_list, verbose=1):
 
         # H0: equal variance
         t_stat, p_value = stats.levene(
-            result_list[args.attribute[0]],
+            result_list[str(list(args.attribute.keys())[0])],
             result_list[args.attribute[1]],
             center="mean",
         )
@@ -468,7 +531,7 @@ def HypothesisTesting(args, result_list, verbose=1):
         # print("")
 
         t_stat, p_value = stats.ttest_ind(
-            a=result_list[args.attribute[0]],
+            a=result_list[str(list(args.attribute.keys())[0])],
             b=result_list[args.attribute[1]],
             equal_var=True,
             alternative=alternative,
@@ -514,7 +577,7 @@ def HypothesisTesting(args, result_list, verbose=1):
     args.time_result[args.ratio].append(HTTime)
 
 
-def samplingGraph(args, graph):
+def samplingGraph(args, graph, find_stop=False):
     # time_sampling_graph_start = time.time()
 
     result_list = []
@@ -523,65 +586,102 @@ def samplingGraph(args, graph):
     ######## Exploration #########
     ##############################
     if args.sampling_method == "RNNS":
-        result_list, time_used = RNNS(args, graph, result_list, time_used_list)
+        result_list, time_used = RNNS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "SRW":
-        result_list, time_used = SRW(args, graph, result_list, time_used_list)
+        result_list, time_used = SRW(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "ShortestPathS":
-        result_list, time_used = ShortestPathS(args, graph, result_list, time_used_list)
+        result_list, time_used = ShortestPathS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "MHRWS":
-        result_list, time_used = MHRWS(args, graph, result_list, time_used_list)
+        result_list, time_used = MHRWS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "CommunitySES":
-        result_list, time_used = CommunitySES(args, graph, result_list, time_used_list)
+        result_list, time_used = CommunitySES(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "CNARW":
-        result_list, time_used = CNARW(args, graph, result_list, time_used_list)
+        result_list, time_used = CNARW(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "FFS":
-        result_list, time_used = FFS(args, graph, result_list, time_used_list)
+        result_list, time_used = FFS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "SBS":
-        result_list, time_used = SBS(args, graph, result_list, time_used_list)
+        result_list, time_used = SBS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "FrontierS":
-        result_list, time_used = FrontierS(args, graph, result_list, time_used_list)
+        result_list, time_used = FrontierS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "NBRW":
-        result_list, time_used = NBRW(args, graph, result_list, time_used_list)
+        result_list, time_used = NBRW(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "RW_Starter":
-        result_list, time_used = RW_Starter(args, graph, result_list, time_used_list)
+        result_list, time_used = RW_Starter(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     ###############################
     ######## Node Sampler #########
     ###############################
     elif args.sampling_method == "RNS":
-        result_list, time_used = RNS(args, graph, result_list, time_used_list)
+        result_list, time_used = RNS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "DBS":
-        result_list, time_used = DBS(args, graph, result_list, time_used_list)
+        result_list, time_used = DBS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "PRBS":
-        result_list, time_used = PRBS(args, graph, result_list, time_used_list)
+        result_list, time_used = PRBS(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     ###############################
     ######## Edge Sampler #########
     ###############################
     elif args.sampling_method == "RES":
-        result_list, time_used = RES(args, graph, result_list, time_used_list)
+        result_list, time_used = RES(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "RNES":
-        result_list, time_used = RNES(args, graph, result_list, time_used_list)
+        result_list, time_used = RNES(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     elif args.sampling_method == "RES_Induction":
-        result_list, time_used = RES_Induction(args, graph, result_list, time_used_list)
+        result_list, time_used = RES_Induction(
+            args, graph, result_list, time_used_list, find_stop
+        )
 
     else:
         args.logger.error(f"Sorry, we don't support {args.sampling_method}.")
         raise Exception(f"Sorry, we don't support {args.sampling_method}.")
+
+    if find_stop:
+        return result_list
 
     time_one_sample = sum(time_used["sampling"]) / len(time_used["sampling"])
     print(
@@ -603,6 +703,27 @@ def samplingGraph(args, graph):
     args.time_result[args.ratio].append(round(time_rating_extraction, 5))
 
     return result_list
+
+
+def search(
+    args, graph, sampling_ratio_start, sampling_ratio_end, jump, threshold, target
+):
+    # sampling_ratio=[]
+    for size in range(sampling_ratio_start, sampling_ratio_end, jump):
+        print(size)
+        args.ratio = size
+        result_list = samplingGraph(args, graph, True)
+        num_node = result_list[0]
+        if abs(target - num_node) < threshold:
+            return size
+        if num_node > target:
+            return size
+            # sampling_ratio.append(size)
+            # default_sampling_ratio = default_sampling_ratio[1:]
+            # if default_sampling_ratio == []:
+            #     args.sampling_ratio = sampling_ratio
+            #     args.num_samples = default_num_samples
+            #     break
 
 
 if __name__ == "__main__":

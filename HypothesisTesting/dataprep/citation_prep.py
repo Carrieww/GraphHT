@@ -11,7 +11,7 @@ def citation_prep(args, author_list_flag=False):
     if not os.path.isfile(
         os.path.join(os.getcwd(), "datasets", args.dataset, "graph.pickle")
     ):
-        df_paper_author = pd.read_csv(
+        df_paper_author = pd.red_csv(
             os.path.join(args.dataset_path, "citation_network.csv")
         )
         df_paper_paper = df_paper_author

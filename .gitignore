@@ -11,7 +11,9 @@ outputacm.txt
 citation.py
 .DS_Store
 HypothesisTesting/*.png
-HypothesisTesting/*/*
+HypothesisTesting/one_sample/*
+HypothesisTesting/two_sample/*
+StatisticsAnalysis/*
 
 # Distribution / packaging
 .Python

@@ -4,6 +4,7 @@ from collections import defaultdict
 
 import networkx as nx
 from scipy import stats
+
 from utils import print_hypo_log
 
 
@@ -18,19 +19,18 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
             )
         # node attribute
         elif args.hypo == 2:
-            result = getGenres(args, new_graph)
+            total_result = getGenres(args, new_graph, dimension={"movie": "genre"})
         # edge attribute mean and variance
         elif args.hypo == 3 or args.hypo == 4:
-            result_dict = nx.get_edge_attributes(new_graph, name="rating")
-            total_result = getRatings(args, new_graph, result_dict)
+            # result_dict = nx.get_edge_attributes(new_graph, name="rating")
+            total_result = getEdges(args, new_graph)
             # return is a list
-            # args.logger.info(f"sample {num_sample}: {args.agg} rating is {result}.")
 
         ##### two side #####
         elif args.hypo == 10:
-            result_dict = nx.get_edge_attributes(new_graph, name="rating")
+            # result_dict = nx.get_edge_attributes(new_graph, name="rating")
             # result is a dictionary
-            result = getRatings(args, new_graph, result_dict)
+            result = getEdges(args, new_graph)
             args.logger.info(
                 f"sample {num_sample}: {args.agg} rating of {args.attribute[0]} is {result[args.attribute[0]]} and {args.agg} rating of {args.attribute[1]} is {result[args.attribute[1]]}."
             )
@@ -47,27 +47,43 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
 
         # node attribute
         elif args.hypo == 2:
-            result = getCitations(args, new_graph)
+            total_result = getGenres(args, new_graph, dimension={"paper": "citation"})
 
         # edge attribute
         elif args.hypo == 3:
-            result_dict = nx.get_edge_attributes(new_graph, name="correlation")
-            total_result = getCorrelation(args, new_graph, result_dict)
-
-        # number of triangles
-        elif args.hypo == 4:
-            result = sum(nx.triangles(new_graph).values()) / 3
+            total_result = getEdges(args, new_graph)
 
         ##### two side #####
         elif args.hypo == 10:
             result = getCitations(args, new_graph)
         else:
             raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
+    elif args.dataset == "yelp":
+        if args.hypo == 3:
+            # result_dict = nx.get_edge_attributes(new_graph, name="stars")
+            total_result = getEdges(args, new_graph)
+        elif args.hypo == 2:
+            total_result = getGenres(args, new_graph, dimension={"business": "stars"})
+        else:
+            raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
 
     result = {}
+
     for attribute, v in total_result.items():
+        args.valid_edges.append(len(v))
+        # print(len(v))
+        # import collections
+
+        # frequency = collections.Counter(v)
+        # print(dict(frequency))
+        # print(v)
+
         if args.agg == "mean":
-            ### TODO: add hypothesis testing here!!
+            variance = statistics.variance(v)
+            # print(f"The variance is {round(variance,3)}.")
+            # args.logger.info(f"The variance is {round(variance,3)}.")
+            args.variance.append(variance)
+
             t_stat, p_value = stats.ttest_1samp(
                 v, popmean=args.ground_truth, alternative="two-sided"
             )
@@ -84,76 +100,107 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
             args.logger.error(f"Sorry, we don't support {args.agg}.")
             raise Exception(f"Sorry, we don't support {args.agg}.")
 
+    # print(f"avg is {sum(avg_length) / len(avg_length)}")
     result_list.append(result)
     return result_list
 
 
-def getCorrelation(args, new_graph, result_dict):
-    total_correlation = defaultdict(list)
+def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
+    total_result = defaultdict(list)
+    total_result_repeat = defaultdict(list)
+    if len(list(args.attribute)) == 1:
+        for condition_name, condition_dict in args.attribute.items():
+            # The condition is on the dimension node only!
+            if (
+                len(list(condition_dict)) == 2
+                and list(condition_dict.keys())[1] == list(dimension.keys())[0]
+            ):
+                attribute_condition_dict = condition_dict[list(dimension.keys())[0]]
+                node_attribute = nx.get_node_attributes(new_graph, "label")
 
-    for key, value in result_dict.items():
-        from_node, to_node = key
-        # print(from_node, to_node)
-        if new_graph.nodes[from_node]["year"] == int(args.attribute[0]):
-            for attribute in args.attribute:
-                total_correlation[attribute].append(value)
+                # for every node, check conditions
+                for key, value in node_attribute.items():
+                    flag = True
+                    if new_graph.nodes[key]["label"] == list(dimension.keys())[0]:
+                        for k, v in attribute_condition_dict.items():
+                            if new_graph.nodes[key][k] == v:
+                                pass
+                            else:
+                                flag = False
+                    else:
+                        flag = False
+                    if flag == True:
+                        total_result[condition_name].append(
+                            new_graph.nodes[key][list(dimension.values())[0]]
+                        )
+            # The condition is on the edge or the other nodes
+            # so we need to extract edges to filter
+            else:
+                selected_edge = condition_dict["edge"]
+                edge_dict = nx.get_edge_attributes(new_graph, name=selected_edge)
 
-        elif new_graph.nodes[to_node]["year"] == int(args.attribute[0]):
-            for attribute in args.attribute:
-                total_correlation[attribute].append(value)
+                for key, value in edge_dict.items():
+                    from_node, to_node = key
+                    flag = checkCondition(args, condition_dict, new_graph, from_node)
+                    if flag == True:
+                        flag = checkCondition(args, condition_dict, new_graph, to_node)
+                    else:
+                        continue
 
-    return total_correlation
+                    if flag == True:
+                        if (
+                            new_graph.nodes[from_node]["label"]
+                            == list(dimension.keys())[0]
+                        ):  # dimension = {"movie":"genre"}
+                            total_result_repeat[condition_name].append(from_node)
+                        elif (
+                            new_graph.nodes[to_node]["label"]
+                            == list(dimension.keys())[0]
+                        ):
+                            total_result_repeat[condition_name].append(to_node)
+                        else:
+                            raise Exception("Wrong code")
+                distinct_nodes = list(set(total_result_repeat[condition_name]))
+                for i in distinct_nodes:
+                    total_result[condition_name].append(
+                        new_graph.nodes[i][list(dimension.values())[0]]
+                    )
 
-    # if len(total_correlation) == 0:
-    #     raise Exception(
-    #         f"No nodes with valid correlation satisfying the current hypothesis and sampling ratio."
-    #     )
-    # # total_correlation = list(map(sum, list(total_correlation.values())))
-    # value_list = list(total_correlation.values())
-    # total_correlation = list(map(lambda idx: sum(idx) / float(len(idx)), value_list))
+    else:
+        raise Exception("Sorry we only support one condition_name")
+    return total_result
+
+    # node_attribute = nx.get_node_attributes(new_graph, "label")
+    # for key, value in node_attribute.items():
+    #     if value == dimension:
+
+    # total_genre = []
+    # genre_list = []
+
+    # for key, value in node_attribute.items():
+    #     num_genre = 0
+    #     if value == "movie":
+    #         if genre_list == []:
+    #             genre_list = list(new_graph.nodes[key].keys())[2:]
+    #         else:
+    #             for genre in genre_list:
+    #                 num_genre += new_graph.nodes[key][genre]
+    #         total_genre.append(num_genre)
+
+    # # sum(total_genre)/len(total_genre)
+    # if len(total_genre) == 0:
+    #     total_genre.append(0)
 
     # if args.agg == "mean":
-    #     result = sum(total_correlation) / len(total_correlation)
+    #     result = sum(total_genre) / len(total_genre)
     # elif args.agg == "max":
-    #     result = max(total_correlation)
+    #     result = max(total_genre)
     # elif args.agg == "min":
-    #     result = min(total_correlation)
-    # elif args.agg == "variance":
-    #     result = statistics.variance(total_correlation)
+    #     result = min(total_genre)
     # else:
     #     args.logger.error(f"Sorry, we don't support {args.agg}.")
     #     raise Exception(f"Sorry, we don't support {args.agg}.")
     # return result
-
-
-def getGenres(args, new_graph):
-    total_genre = []
-    genre_list = []
-    node_attribute = nx.get_node_attributes(new_graph, "label")
-    for key, value in node_attribute.items():
-        num_genre = 0
-        if value == "movie":
-            if genre_list == []:
-                genre_list = list(new_graph.nodes[key].keys())[2:]
-            else:
-                for genre in genre_list:
-                    num_genre += new_graph.nodes[key][genre]
-            total_genre.append(num_genre)
-
-    # sum(total_genre)/len(total_genre)
-    if len(total_genre) == 0:
-        total_genre.append(0)
-
-    if args.agg == "mean":
-        result = sum(total_genre) / len(total_genre)
-    elif args.agg == "max":
-        result = max(total_genre)
-    elif args.agg == "min":
-        result = min(total_genre)
-    else:
-        args.logger.error(f"Sorry, we don't support {args.agg}.")
-        raise Exception(f"Sorry, we don't support {args.agg}.")
-    return result
 
 
 def getMovies(args, new_graph):
@@ -226,21 +273,72 @@ def getCitations(args, new_graph):
     return result
 
 
-def getRatings(args, new_graph, result_dict):
-    total_rating = defaultdict(list)
+def checkCondition(args, condition_dict, new_graph, node_index):
+    if (
+        new_graph.nodes[node_index]["label"] in condition_dict
+    ):  # condition_dict={"node label":{attribute condition}}
+        attribute_condition_dict = condition_dict[new_graph.nodes[node_index]["label"]]
+        for k, v in attribute_condition_dict.items():  # {"gender":"M"}}
+            if new_graph.nodes[node_index][k] == v:
+                pass
+            else:
+                return False
+    else:
+        return True
+    return True
+
+
+def getEdges(args, new_graph):
+    # get selected edge type from args.attribute
+    if len(list(args.attribute)) == 1:
+        for condition_name, condition_dict in args.attribute.items():
+            selected_edge = condition_dict["edge"]
+    else:
+        raise Exception("Sorry we only support one condition_name")
+    edge_dict = nx.get_edge_attributes(new_graph, name=selected_edge)
+
+    total_result = defaultdict(list)
+
+    for key, value in edge_dict.items():
+        from_node, to_node = key
+        # check the label of every node in edge_dict
+        # if we have the attribute constraints in args.attribute, we check the condition
+        for (
+            condition_name,
+            condition_dict,
+        ) in args.attribute.items():  # {"1-1":{condition_dict}}
+            # check both from and to node conditions
+            flag = checkCondition(args, condition_dict, new_graph, from_node)
+            if flag == True:
+                flag = checkCondition(args, condition_dict, new_graph, to_node)
+            else:
+                continue
+
+            if flag == True:
+                # print(new_graph.nodes[from_node])
+                # print(new_graph.nodes[to_node])
+                total_result[condition_name].append(value)
+
+    return total_result
+
+
+def getCorrelation(args, new_graph):
+    result_dict = nx.get_edge_attributes(new_graph, name="correlation")
+    total_correlation = defaultdict(list)
+    print(len(result_dict))
 
     for key, value in result_dict.items():
         from_node, to_node = key
-        if new_graph.nodes[from_node]["label"] == "article":
+        # print(from_node, to_node)
+        if new_graph.nodes[from_node]["year"] == int(args.attribute[0]):
             for attribute in args.attribute:
-                if new_graph.nodes[from_node][attribute] == 1:
-                    total_rating[attribute].append(value)
-        elif new_graph.nodes[to_node]["label"] == "article":
-            for attribute in args.attribute:
-                if new_graph.nodes[to_node][attribute] == 1:
-                    total_rating[attribute].append(value)
+                total_correlation[attribute].append(value)
 
-    return total_rating
+        elif new_graph.nodes[to_node]["year"] == int(args.attribute[0]):
+            for attribute in args.attribute:
+                total_correlation[attribute].append(value)
+
+    return total_correlation
 
 
 def getAuthors(args, new_graph):

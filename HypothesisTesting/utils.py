@@ -12,6 +12,8 @@ from dataprep.citation_prep import citation_prep
 from dataprep.movielens_prep import movielens_prep
 from dataprep.yelp_prep import yelp_prep
 
+# from main import samplingGraph
+
 
 def setup_device(args):
     args.device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -34,7 +36,7 @@ def logger(args):
         args.log_folderPath = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "one_sample",
-            "log_and_results_" + str(args.attribute[0]),
+            "log_and_results_" + str(list(args.attribute.keys())[0]),
         )
     else:
         args.log_folderPath = os.path.join(
@@ -52,9 +54,11 @@ def logger(args):
             )
         else:
             if len(args.attribute) == 1:
-                string = str(args.attribute[0][:4])
+                string = str(list(args.attribute.keys())[0])
             else:
-                string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
+                string = str(list(args.attribute.keys())[0]) + str(
+                    list(args.attribute.keys())[1]
+                )
             log_filepath = os.path.join(
                 args.log_folderPath,
                 args.dataset
@@ -74,9 +78,13 @@ def logger(args):
             )
     else:
         if len(args.attribute) == 1:
-            string = str(args.attribute[0][:4])
+            string = str(list(args.attribute.keys())[0])
+        elif len(args.attribute) == 2:
+            string = str(list(args.attribute.keys())[0]) + str(
+                list(args.attribute.keys())[1]
+            )
         else:
-            string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
+            raise Exception(f"Sorry we dont support more than 2 comparisons.")
         log_filepath = os.path.join(
             args.log_folderPath,
             args.dataset

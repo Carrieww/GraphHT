@@ -6,7 +6,7 @@ import networkx as nx
 import pandas as pd
 from config import ROOT_DIR
 
-columns_to_keep = ["article_id", "gender", "cust_id", "location", "age"]
+# columns_to_keep = ["article_id", "gender", "cust_id", "location", "age"]
 ages_ml = {
     1: "<18",
     18: "18-24",
@@ -77,7 +77,7 @@ def movielens_prep(args):
         graph.add_nodes_from(user_list)
 
         # prepare edge lists
-        relation_list = getRelationList("cust", "article", df_ratings, graph)
+        relation_list = getRelationList("user", "movie", df_ratings, graph)
         graph.add_edges_from(relation_list)
         # print(nx.is_connected(graph))
 
@@ -87,7 +87,7 @@ def movielens_prep(args):
                 graph, first_label=0, ordering="default"
             )
             print("The constructed graph is connected")
-            pass
+
         else:
             print("The constructed graph is NOT connected")
             largest_cc = max(nx.connected_components(graph), key=len)
@@ -222,8 +222,8 @@ def get_dataset_movielens():
     )
 
     columns = {
-        "userId": "cust_id",
-        "itemId": "article_id",
+        "userId": "user_id",
+        "itemId": "movie_id",
         "Gender": "gender",
         "Age": "age",
         "Occupation": "occupation",
@@ -233,18 +233,18 @@ def get_dataset_movielens():
     df.rename(columns=columns, inplace=True)
     df = df.reset_index(drop=True)
 
-    df_movies = df.loc[:, ["article_id", "year", "genres", "runtimeMinutes"]]
+    df_movies = df.loc[:, ["movie_id", "year", "genres", "runtimeMinutes"]]
     df_movies = df_movies.drop_duplicates().reset_index(drop=True)
     df_movies = genrePreprocess(df_movies, "|")
-    df_users = df.loc[:, ["cust_id", "gender", "age", "occupation"]]
+    df_users = df.loc[:, ["user_id", "gender", "age", "occupation"]]
     df_users = df_users.drop_duplicates().reset_index(drop=True)
     df_ratings = df.loc[
-        :, ["article_id", "cust_id", "transaction_date", "rating"]
+        :, ["movie_id", "user_id", "transaction_date", "rating"]
     ].reset_index(drop=True)
 
     columns = {
-        "article_id": "to_id",
-        "cust_id": "from_id",
+        "movie_id": "to_id",
+        "user_id": "from_id",
         "transaction_date": "transaction_date",
         "rating": "rating",
     }
@@ -253,7 +253,6 @@ def get_dataset_movielens():
     # features2values = dict()
     # for feature in ["age", "gender", "genre", "year", "occupation", "runtimeMinutes"]:
     #     features2values[feature] = list(df[feature].unique())
-
     return df_movies, df_users, df_ratings  # , features2values  # df.shape=(996656, 11)
 
 
@@ -284,7 +283,7 @@ def getNodeList(df):
         node_attribute = {}
         for k, v in row.items():
             if k[-3:] == "_id":
-                node_name = k[:-3] + str(v)
+                node_name = k[:-3] + str(int(v))
                 node_attribute["label"] = k[:-3]
             else:
                 node_attribute[k] = v
@@ -299,13 +298,14 @@ def getRelationList(from_node_name, to_node_name, df, graph):
         edge_attribute = {}
         for k, v in row.items():
             if k[:-3] == "from":
-                from_node = from_node_name + str(v)
+                from_node = from_node_name + str(int(v))
                 assert from_node in graph.nodes(), f"{from_node} is not in g"
             elif k[:-3] == "to":
-                to_node = to_node_name + str(v)
+                to_node = to_node_name + str(int(v))
                 assert to_node in graph.nodes(), f"{to_node} is not in g"
             else:
                 edge_attribute[k] = v
+        # edge_attribute["rate"] = "1"
         edge_list.append((from_node, to_node, edge_attribute))
     return edge_list
 
@@ -348,5 +348,6 @@ def genrePreprocess(df_movies, delimiter):
             movies_df_mod.loc[index, genre] = 1
 
     movies_df_mod = movies_df_mod.drop(["genres"], axis=1)
+    movies_df_mod["genre"] = movies_df_mod[genres_list].sum(axis=1)
 
     return movies_df_mod
