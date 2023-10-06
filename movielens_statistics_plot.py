@@ -77,7 +77,7 @@ def plot_bar_chart(values, labels, num_edges, subject, img_output_path):
     ax.yaxis.grid(True, linestyle="--", alpha=0.7)
 
     # Set axis labels and title
-    ax.set_ylabel("Number of Movies")
+    ax.set_ylabel("Number of Edges")
     ax.set_title(f"{subject} Distribution of {dataset_name}")
 
     # Save the bar chart
@@ -112,7 +112,7 @@ def get_genre_plot(g, num_edges, output_filename="genre_bar.png"):
     condition_dict = []
     labels = []
     for k, v in sample_node.items():
-        if isinstance(v, int):
+        if isinstance(v, int) and k != "genre":
             labels.append(k)
             condition_dict.append({"movie": {k: 1}})
     # print(condition_dict)
@@ -274,7 +274,10 @@ if __name__ == "__main__":
     # plot user occupation bar chart
     if not os.path.isfile(
         os.path.join(
-            os.getcwd(), "StatisticsAnalysis", "MovieLens1", "occupation_bar.png"
+            os.getcwd(),
+            "StatisticsAnalysis",
+            "MovieLens1",
+            "occupation_bar.png",
         )
     ):
         print("start preparing the bar chart for user occupations.")

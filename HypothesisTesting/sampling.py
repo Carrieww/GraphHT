@@ -16,7 +16,6 @@ def time_sampling_extraction(
 
     time_rating_extraction_start = time.time()
     result_list = new_graph_hypo_result(args, new_graph, result_list, num_sample)
-    # time_used_list["length"] = length
     time_used_list["sample_graph_by_condition"].append(
         round(time.time() - time_rating_extraction_start, 2)
     )
@@ -198,13 +197,6 @@ def CommunitySES(args, graph, result_list, time_used_list, find_stop=False):
                 if node in self.known_expansion.keys():
                     # print("here")
                     expansion = self.known_expansion[node]
-                    # expansion = len(
-                    #     set(self.backend.get_neighbors(graph, node)).difference(
-                    #         self._sampled_nodes
-                    #     )
-                    # )
-                    # if expansion_1 != expansion:
-                    #     raise Exception(f"expansion_1!=expansion")
                 else:
                     expansion = len(
                         set(self.backend.get_neighbors(graph, node)).difference(
@@ -233,10 +225,6 @@ def CommunitySES(args, graph, result_list, time_used_list, find_stop=False):
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
-
-        # if ((time.time() - time_one_sample_start) / 60) > 15:
-        #     print(num_nodes, num_edges)
-        #     raise Exception(f"Sampling once takes more than 15 minites so we stop.")
 
         if find_stop:
             return [num_nodes, num_edges], []
@@ -324,8 +312,7 @@ def SBS(args, graph, result_list, time_used_list, find_stop=False):
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         model = SnowBallSampler_new(
-            number_of_nodes=args.ratio,
-            seed=(int(args.seed) * num_sample),
+            number_of_nodes=args.ratio, seed=(int(args.seed) * num_sample), k=200
         )
         new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
@@ -375,7 +362,7 @@ def RW_Starter(args, graph, result_list, time_used_list, find_stop=False):
 
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
-        # print(f"start sampling time: {time_one_sample_start}")
+
         model = RandomWalkWithRestartSampler_new(
             number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
@@ -486,12 +473,7 @@ def FrontierS(args, graph, result_list, time_used_list, find_stop=False):
             f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
         )
         print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
-        # print(
-        #     f"The new_graph from FrontierS is connected: {nx.is_connected(new_graph)}."
-        # )
-        # args.logger.info(
-        #     f"The new_graph from FrontierS is connected: {nx.is_connected(new_graph)}."
-        # )
+
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,

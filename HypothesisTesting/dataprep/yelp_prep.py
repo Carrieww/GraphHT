@@ -10,7 +10,7 @@ from dataprep.movielens_prep import getNodeList, getRelationList
 
 def yelp_prep(args):
     if not os.path.isfile(
-        os.path.join(os.getcwd(), "datasets", "yelp_dataset", "graph.pickle")
+        os.path.join(ROOT_DIR, "../datasets", "yelp_dataset", "graph.pickle")
     ):
         print(f"preparing dataset {args.dataset}.")
         args.logger.info(f"preparing dataset {args.dataset}.")
@@ -46,7 +46,9 @@ def yelp_prep(args):
         pickle.dump(
             graph,
             open(
-                os.path.join(os.getcwd(), "datasets", "yelp_dataset", "graph.pickle"),
+                os.path.join(
+                    os.getcwd(), "../datasets", "yelp_dataset", "graph.pickle"
+                ),
                 "wb",
             ),
         )
@@ -54,7 +56,7 @@ def yelp_prep(args):
         print("loading dataset.")
         graph = pickle.load(
             open(
-                os.path.join(os.getcwd(), "datasets", "yelp_dataset", "graph.pickle"),
+                os.path.join(ROOT_DIR, "../datasets", "yelp_dataset", "graph.pickle"),
                 "rb",
             )
         )

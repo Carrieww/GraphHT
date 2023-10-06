@@ -9,7 +9,7 @@ import pandas as pd
 
 def citation_prep(args, author_list_flag=False):
     if not os.path.isfile(
-        os.path.join(os.getcwd(), "datasets", args.dataset, "graph.pickle")
+        os.path.join(os.getcwd(), "../datasets", args.dataset, "graph.pickle")
     ):
         df_paper_author = pd.red_csv(
             os.path.join(args.dataset_path, "citation_network.csv")
@@ -46,7 +46,7 @@ def citation_prep(args, author_list_flag=False):
         pickle.dump(
             graph,
             open(
-                os.path.join(os.getcwd(), "datasets", args.dataset, "graph.pickle"),
+                os.path.join(os.getcwd(), "../datasets", args.dataset, "graph.pickle"),
                 "wb",
             ),
         )
@@ -54,7 +54,7 @@ def citation_prep(args, author_list_flag=False):
         print("loading dataset.")
         graph = pickle.load(
             open(
-                os.path.join(os.getcwd(), "datasets", args.dataset, "graph.pickle"),
+                os.path.join(os.getcwd(), "../datasets", args.dataset, "graph.pickle"),
                 "rb",
             )
         )

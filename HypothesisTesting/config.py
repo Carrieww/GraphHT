@@ -18,7 +18,7 @@ def parse_args():
     parser.add_argument(
         "--sampling_method",
         type=str,
-        default="MHRWS",
+        default="CommunitySES",
         help="sampling method.",
     )
     parser.add_argument(
@@ -36,21 +36,14 @@ def parse_args():
     # sample size parameter
     parser.add_argument(
         "--sampling_ratio",
-        type=list,
-        default=[
-            85,
-            120,
-            155,
-            180,
-            400,
-            700,
-        ],  # [5000, 10000, 15000, 20000, 45000, 85000, 500000],  #
-        help="sampling size list.",
-    )  # default [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9],
+        type=str,
+        default="2000",  # \t1000\t1500\t2000\t2500\t3000\t5000
+        help="Tab-separated list of sampling values.",
+    )
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=10,
+        default=2,
         help="number of samples to draw from the original graph.",
     )
 
@@ -60,7 +53,11 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "1-4": {"edge": "rating", "user": {"gender": "F"}}
+            "1-1-1-1": {
+                "edge": "rating",
+                "movie": {"Action": 1},
+                "user": {"popularity_type": "large"},
+            }  # 90 1000+ 80 590 70 238
         },  # , "article": {"Adventure": 1}}},
         help="The attributes you want to test hypothesis on.",
     )
@@ -73,25 +70,18 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=3,
+        default=1,
         help="choosing from: 1, 2...",
     )
     # movielens
-    # hypo 1 (degree): avg number of advanture movies rated by users > 80
+    # hypo 1 (edge attribute): avg rating of advanture movies > 3.6
     # hypo 2 (node attribute): avg number of genres a movie has is > 5
-    # hypo 3 (edge attribute): avg rating of advanture movies > 3.6
-    # hypo 4 (variance): the variance/sd of advanture movie ratings < 0.01
-
-    # hypo 10 (Node attribute on edge attribute): Adventure movies receive higher ratings than Comedy movies.
+    # hypo 3 (path): avg age of users who have watched both movie a and movie b.
 
     # # citation
-    # hypo 1 (degree): avg authors of paper in 2008 > 2.6
+    # hypo 1 (edge attribute): avg correlation score of papers in 2008 with its related papers > 3.6
     # hypo 2 (node attribute): avg citation of paper in 2008 > 2.6
-    # hypo 3 (edge attribute): avg correlation score of papers in 2008 with its related papers > 3.6
-    # hypo 4 (triangle): number of triangles > 2.6
-    # hypo 5: number of author1-paper1-paper2-author2 > 2.6
-
-    # hypo 10 (node attribute): Avg citations of papers in 2008 is higher than that in 1962
+    # hypo 3 (path): path
 
     parser.add_argument(
         "--comparison",
@@ -100,4 +90,9 @@ def parse_args():
         help="choosing from: !=, ==, >, <",
     )
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    if args.sampling_ratio:
+        args.sampling_ratio = [int(value) for value in args.sampling_ratio.split("\t")]
+        # Now, sampling_list is a Python list containing the values
+        # print("Sampling list:", sampling_list)
+    return args

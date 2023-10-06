@@ -1,21 +1,19 @@
 import os
 import pickle
-import re
-
 import networkx as nx
 import pandas as pd
 from config import ROOT_DIR
 
 # columns_to_keep = ["article_id", "gender", "cust_id", "location", "age"]
-ages_ml = {
-    1: "<18",
-    18: "18-24",
-    25: "25-34",
-    35: "35-44",
-    45: "45-49",
-    50: "50-55",
-    56: ">56",
-}
+# ages_ml = {
+#     1: "<18",
+#     18: "18-24",
+#     25: "25-34",
+#     35: "35-44",
+#     45: "45-49",
+#     50: "50-55",
+#     56: ">56",
+# }
 
 decades = {
     "0": "2000's",
@@ -60,8 +58,9 @@ occupations = {
 
 
 def movielens_prep(args):
+    # print(ROOT_DIR)
     if not os.path.isfile(
-        os.path.join(os.getcwd(), "datasets", "MovieLens1", "graph.pickle")
+        os.path.join(ROOT_DIR, "../datasets", "MovieLens1", "graph.pickle")
     ):
         print(f"preparing dataset {args.dataset}.")
         args.logger.info(f"preparing dataset {args.dataset}.")
@@ -96,11 +95,26 @@ def movielens_prep(args):
                 largest_graph, first_label=0, ordering="default"
             )
 
+        # add the popularity attribute
+        new_attr = {}
+        for i in graph.nodes():
+            if graph.nodes[i]["label"] == "user":
+                # print(graph.degree[i])
+                deg = graph.degree[i]
+                if deg >= 180:
+                    popularity_type = "large"
+                elif 180 > deg >= 60:
+                    popularity_type = "medium"
+                else:
+                    popularity_type = "small"
+                new_attr[i] = {"popularity": deg, "popularity_type": popularity_type}
+        nx.set_node_attributes(graph, new_attr)
+
         # save the graph
         pickle.dump(
             graph,
             open(
-                os.path.join(os.getcwd(), "datasets", "MovieLens1", "graph.pickle"),
+                os.path.join(os.getcwd(), "../datasets", "MovieLens1", "graph.pickle"),
                 "wb",
             ),
         )
@@ -108,7 +122,7 @@ def movielens_prep(args):
         print("loading dataset.")
         graph = pickle.load(
             open(
-                os.path.join(os.getcwd(), "datasets", "MovieLens1", "graph.pickle"),
+                os.path.join(ROOT_DIR, "../datasets", "MovieLens1", "graph.pickle"),
                 "rb",
             )
         )
@@ -163,7 +177,7 @@ def get_dataset_movielens():
 
     user = user[["userId", "Gender", "Age", "Occupation"]]
     user.Occupation = user.Occupation.map(lambda x: occupations[x])
-    user.Age = user.Age.map(lambda x: ages_ml[x])
+    # user.Age = user.Age.map(lambda x: ages_ml[x])
 
     item.rename(columns={"movieId": "itemId"}, inplace=True)
     item_rating.rename(columns={"movieId": "itemId"}, inplace=True)

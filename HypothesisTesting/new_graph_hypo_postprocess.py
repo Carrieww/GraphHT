@@ -11,85 +11,63 @@ from utils import print_hypo_log
 def new_graph_hypo_result(args, new_graph, result_list, num_sample):
     if args.dataset == "movielens":
         ##### one side #####
-        # degree
+        # edge hypo
         if args.hypo == 1:
-            result = getMovies(args, new_graph)
-            args.logger.info(
-                f"sample {num_sample}: {args.agg} number of {args.hypo} movies rated by users is {result}."
-            )
-        # node attribute
+            total_result = getEdges(args, new_graph)
+        # node hypo
         elif args.hypo == 2:
             total_result = getGenres(args, new_graph, dimension={"movie": "genre"})
-        # edge attribute mean and variance
-        elif args.hypo == 3 or args.hypo == 4:
-            # result_dict = nx.get_edge_attributes(new_graph, name="rating")
-            total_result = getEdges(args, new_graph)
-            # return is a list
-
-        ##### two side #####
-        elif args.hypo == 10:
-            # result_dict = nx.get_edge_attributes(new_graph, name="rating")
-            # result is a dictionary
-            result = getEdges(args, new_graph)
-            args.logger.info(
-                f"sample {num_sample}: {args.agg} rating of {args.attribute[0]} is {result[args.attribute[0]]} and {args.agg} rating of {args.attribute[1]} is {result[args.attribute[1]]}."
-            )
         else:
             raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
     elif args.dataset == "citation":
         ##### one side #####
-        # degree
+        # edge hypo
         if args.hypo == 1:
-            result = getAuthors(args, new_graph)
-            args.logger.info(
-                f"sample {num_sample}: {args.agg} number of author is {result}."
-            )
+            total_result = getEdges(args, new_graph)
 
-        # node attribute
+        # node hypo
         elif args.hypo == 2:
             total_result = getGenres(args, new_graph, dimension={"paper": "citation"})
 
-        # edge attribute
-        elif args.hypo == 3:
-            total_result = getEdges(args, new_graph)
-
-        ##### two side #####
-        elif args.hypo == 10:
-            result = getCitations(args, new_graph)
         else:
             raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
     elif args.dataset == "yelp":
-        if args.hypo == 3:
-            # result_dict = nx.get_edge_attributes(new_graph, name="stars")
+        # edge hypo
+        if args.hypo == 1:
             total_result = getEdges(args, new_graph)
+        # node hypo
         elif args.hypo == 2:
             total_result = getGenres(args, new_graph, dimension={"business": "stars"})
         else:
             raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
 
+    if len(total_result) == 0:
+        total_result[list(args.attribute.keys())[0]] = []
+        # raise Exception(
+        #     "Sorry, there is no valid nodes/edges satisfying the conditions in the hypothesis."
+        # )
+
     result = {}
 
     for attribute, v in total_result.items():
         args.valid_edges.append(len(v))
-        # print(len(v))
-        # import collections
-
-        # frequency = collections.Counter(v)
-        # print(dict(frequency))
         # print(v)
 
         if args.agg == "mean":
-            variance = statistics.variance(v)
-            # print(f"The variance is {round(variance,3)}.")
-            # args.logger.info(f"The variance is {round(variance,3)}.")
-            args.variance.append(variance)
+            if len(v) > 1:
+                variance = statistics.variance(v)
+                # print(f"The variance is {round(variance,3)}.")
+                # args.logger.info(f"The variance is {round(variance,3)}.")
+                args.variance.append(variance)
 
-            t_stat, p_value = stats.ttest_1samp(
-                v, popmean=args.ground_truth, alternative="two-sided"
-            )
-            print_hypo_log(args, t_stat, p_value, args.H0, twoSides=True)
+                t_stat, p_value = stats.ttest_1samp(
+                    v, popmean=args.ground_truth, alternative="two-sided"
+                )
+                print_hypo_log(args, t_stat, p_value, args.H0, twoSides=True)
 
-            result[attribute] = sum(v) / len(v)
+                result[attribute] = sum(v) / len(v)
+            else:
+                result[attribute] = float("nan")
         elif args.agg == "max":
             result[attribute] = max(v)
         elif args.agg == "min":
@@ -100,7 +78,6 @@ def new_graph_hypo_result(args, new_graph, result_list, num_sample):
             args.logger.error(f"Sorry, we don't support {args.agg}.")
             raise Exception(f"Sorry, we don't support {args.agg}.")
 
-    # print(f"avg is {sum(avg_length) / len(avg_length)}")
     result_list.append(result)
     return result_list
 
@@ -129,7 +106,7 @@ def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
                                 flag = False
                     else:
                         flag = False
-                    if flag == True:
+                    if flag:
                         total_result[condition_name].append(
                             new_graph.nodes[key][list(dimension.values())[0]]
                         )
@@ -142,12 +119,12 @@ def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
                 for key, value in edge_dict.items():
                     from_node, to_node = key
                     flag = checkCondition(args, condition_dict, new_graph, from_node)
-                    if flag == True:
+                    if flag:
                         flag = checkCondition(args, condition_dict, new_graph, to_node)
                     else:
                         continue
 
-                    if flag == True:
+                    if flag:
                         if (
                             new_graph.nodes[from_node]["label"]
                             == list(dimension.keys())[0]
@@ -170,41 +147,9 @@ def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
         raise Exception("Sorry we only support one condition_name")
     return total_result
 
-    # node_attribute = nx.get_node_attributes(new_graph, "label")
-    # for key, value in node_attribute.items():
-    #     if value == dimension:
-
-    # total_genre = []
-    # genre_list = []
-
-    # for key, value in node_attribute.items():
-    #     num_genre = 0
-    #     if value == "movie":
-    #         if genre_list == []:
-    #             genre_list = list(new_graph.nodes[key].keys())[2:]
-    #         else:
-    #             for genre in genre_list:
-    #                 num_genre += new_graph.nodes[key][genre]
-    #         total_genre.append(num_genre)
-
-    # # sum(total_genre)/len(total_genre)
-    # if len(total_genre) == 0:
-    #     total_genre.append(0)
-
-    # if args.agg == "mean":
-    #     result = sum(total_genre) / len(total_genre)
-    # elif args.agg == "max":
-    #     result = max(total_genre)
-    # elif args.agg == "min":
-    #     result = min(total_genre)
-    # else:
-    #     args.logger.error(f"Sorry, we don't support {args.agg}.")
-    #     raise Exception(f"Sorry, we don't support {args.agg}.")
-    # return result
-
 
 def getMovies(args, new_graph):
-    if args.attribute == None:
+    if args.attribute is None:
         degree_list = []
         user_list = []
         for i in new_graph.nodes:
@@ -219,7 +164,7 @@ def getMovies(args, new_graph):
         user_list = set()
         for i, _ in result_dict.items():
             from_node, to_node = i
-            # if new_graph.nodes[from_node]["label"]=="user" or new_graph.nodes[to_node]["label"]=="user" :
+
             if new_graph.nodes[from_node]["label"] == "user":
                 if new_graph.nodes[to_node][args.attribute[0]] == 1:
                     user_list.add(from_node)
@@ -309,12 +254,12 @@ def getEdges(args, new_graph):
         ) in args.attribute.items():  # {"1-1":{condition_dict}}
             # check both from and to node conditions
             flag = checkCondition(args, condition_dict, new_graph, from_node)
-            if flag == True:
+            if flag:
                 flag = checkCondition(args, condition_dict, new_graph, to_node)
             else:
                 continue
 
-            if flag == True:
+            if flag:
                 # print(new_graph.nodes[from_node])
                 # print(new_graph.nodes[to_node])
                 total_result[condition_name].append(value)
