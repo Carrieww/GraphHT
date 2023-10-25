@@ -12,13 +12,13 @@ def parse_args():
     parser.add_argument(
         "--file_num",
         type=int,
-        default=100,
+        default=99,
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
         "--sampling_method",
         type=str,
-        default="CommunitySES",
+        default="RES",
         help="sampling method.",
     )
     parser.add_argument(
@@ -37,13 +37,13 @@ def parse_args():
     parser.add_argument(
         "--sampling_ratio",
         type=str,
-        default="2000",  # \t1000\t1500\t2000\t2500\t3000\t5000
+        default="500\t1000\t1500\t2000\t5000\t10000",  # \t1000\t1500\t2000\t2500\t3000\t5000
         help="Tab-separated list of sampling values.",
     )
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=2,
+        default=10,
         help="number of samples to draw from the original graph.",
     )
 
@@ -53,30 +53,33 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "1-1-1-1": {
+            "3-2-1": {
                 "edge": "rating",
-                "movie": {"Action": 1},
-                "user": {"popularity_type": "large"},
-            }  # 90 1000+ 80 590 70 238
-        },  # , "article": {"Adventure": 1}}},
+                "path": [
+                    {"type": "movie", "attribute": {"Thriller": 1}},
+                    {"type": "user", "attribute": {}},
+                    {"type": "movie", "attribute": {"Crime": 1}},
+                ],
+            }
+        },
         help="The attributes you want to test hypothesis on.",
     )
     parser.add_argument(
         "--agg",
         type=str,
         default="mean",
-        help="choosing from: mean, max, min, number, varaince",
+        help="choosing from: mean, max, min, number, variance",
     )
     parser.add_argument(
         "--hypo",
         type=int,
-        default=1,
+        default=3,
         help="choosing from: 1, 2...",
     )
     # movielens
-    # hypo 1 (edge attribute): avg rating of advanture movies > 3.6
+    # hypo 1 (edge attribute): avg rating of adventure movies > 3.6
     # hypo 2 (node attribute): avg number of genres a movie has is > 5
-    # hypo 3 (path): avg age of users who have watched both movie a and movie b.
+    # hypo 3 (path): avg rating of on path Action-user-Documentary
 
     # # citation
     # hypo 1 (edge attribute): avg correlation score of papers in 2008 with its related papers > 3.6

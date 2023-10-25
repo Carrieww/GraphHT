@@ -230,3 +230,37 @@ def get_data(args):
     else:
         args.logger.error(f"Sorry, we don't support {args.dataset}.")
         raise Exception(f"Sorry, we don't support {args.dataset}.")
+
+
+def check_1_sample(args):
+    """check if the hypothesis is one-sample or two-sample by their length of attribute list"""
+    if args.hypo < 10:
+        args.HTtype = "one-sample"
+
+        if (args.attribute is not None) and (len(args.attribute) == 1):
+            # attribute = str(list(args.attribute.keys())[0])
+            pass
+        else:
+            args.logger.error(
+                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            )
+
+            raise Exception(
+                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            )
+    else:
+        args.HTtype = "two-sample"
+        assert (
+            args.comparison is not None
+        ), f"{args.dataset} requires the args.comparison parameter."
+
+        if (args.attribute is not None) and (len(args.attribute) == 2):
+            pass
+        else:
+            args.logger.error(
+                f"Sorry, args.attribute is None or len(args.attribute) != 2."
+            )
+
+            raise Exception(
+                f"Sorry, args.attribute is None or len(args.attribute) != 2."
+            )

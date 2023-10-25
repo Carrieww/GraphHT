@@ -8,7 +8,7 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 from config import parse_args
-from new_graph_hypo_postprocess import getEdges, getGenres
+from new_graph_hypo_postprocess import getEdges, getGenres, getPaths
 from sampling import (
     CNARW,
     DBS,
@@ -27,6 +27,7 @@ from sampling import (
     RES_Induction,
     RW_Starter,
     ShortestPathS,
+    OurSampler,
 )
 
 # from new_graph_hypo_postprocess import new_graph_hypo_result
@@ -39,6 +40,7 @@ from utils import (
     print_hypo_log,
     setup_device,
     setup_seed,
+    check_1_sample,
 )
 
 
@@ -64,10 +66,10 @@ def main():
     graph = get_data(args)
 
     print(
-        f">>> Total time for dataset {args.dataset} preperation is {round((time.time() - time_dataset_prep),2)}."
+        f">>> Total time for dataset {args.dataset} preparation is {round((time.time() - time_dataset_prep),2)}."
     )
     args.logger.info(
-        f">>> Total time for dataset {args.dataset} preperation is {round((time.time() - time_dataset_prep),2)}."
+        f">>> Total time for dataset {args.dataset} preparation is {round((time.time() - time_dataset_prep),2)}."
     )
 
     # print graph characteristics
@@ -85,6 +87,8 @@ def main():
     elif args.dataset == "yelp":
         args.ground_truth = getGroundTruth(args, graph)
 
+    # check x-sample:
+    check_1_sample(args)
     if args.HTtype == "one-sample":
         args.ground_truth = args.ground_truth[str(list(args.attribute.keys())[0])]
         args.CI = []
@@ -94,6 +98,7 @@ def main():
     # sample for each sampling ratio
     args.result = defaultdict(list)
     args.time_result = defaultdict(list)
+    args.coverage = defaultdict(list)
     for ratio in args.sampling_ratio:
         # args.time_limit=time.time()
         args.valid_edges = []
@@ -106,9 +111,13 @@ def main():
 
         valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
         print(f"average valid nodes/edges are {valid_e_n}")
-        print(f"average variance is {sum(args.variance)/len(args.variance)}")
         args.logger.info(f"average valid nodes/edges are {valid_e_n}")
-        args.logger.info(f"average variance is {sum(args.variance)/len(args.variance)}")
+        if hasattr(args, "variance"):
+            if len(args.variance) != 0:
+                print(f"average variance is {sum(args.variance)/len(args.variance)}")
+                args.logger.info(
+                    f"average variance is {sum(args.variance)/len(args.variance)}"
+                )
 
         args.time_result[args.ratio].append(valid_e_n)
 
@@ -126,11 +135,57 @@ def main():
         ##### Hypothesis Testing #####
         ##############################
         if args.HTtype == "one-sample":
-            print(result_list)
+            # print(result_list)
+            if args.hypo == 3:
+                user_cov_list = [
+                    i[str(list(args.attribute.keys())[0]) + "+user_coverage"]
+                    for i in result_list
+                ]
+                movie_cov_list = [
+                    i[str(list(args.attribute.keys())[0]) + "+movie_coverage"]
+                    for i in result_list
+                ]
+                density_list = [i["density"] for i in result_list]
+                diameter_list = [i["diameter"] for i in result_list]
+                total_valid_path_list = [i["total_valid"] for i in result_list]
+                total_valid_path_minus_reverse_list = [
+                    i["total_minus_reverse"] for i in result_list
+                ]
+
+                density = sum(density_list) / len(density_list)
+                diameter = sum(diameter_list) / len(diameter_list)
+                total_valid = sum(total_valid_path_list) / len(total_valid_path_list)
+                total_valid_path_minus_reverse = sum(
+                    total_valid_path_minus_reverse_list
+                ) / len(total_valid_path_minus_reverse_list)
+                # num_reverse = total_valid-total_valid_path_minus_reverse
+                # num_self_loop =
+                args.coverage[args.ratio].append(
+                    round(sum(user_cov_list) / len(user_cov_list), 3)
+                )
+                args.coverage[args.ratio].append(
+                    round(sum(movie_cov_list) / len(movie_cov_list), 3)
+                )
+                args.coverage[args.ratio].append(round(total_valid, 3))
+                args.coverage[args.ratio].append(
+                    round(
+                        total_valid_path_minus_reverse,
+                        3,
+                    )
+                )
+                args.coverage[args.ratio].append(round(density, 3))
+                args.coverage[args.ratio].append(round(diameter, 3))
+                print(
+                    f">>> Diameter of sampling result at {args.ratio} sampling ratio is {round(diameter,3)}."
+                )
+                args.logger.info(
+                    f">>> Diameter of sampling result at {args.ratio} sampling ratio is {round(diameter,3)}."
+                )
+
             result_list = [i[str(list(args.attribute.keys())[0])] for i in result_list]
             result = sum(result_list) / len(result_list)
             # print percentage error w.r.t. the ground truth
-            percent_error = 100 * abs((result) - args.ground_truth) / args.ground_truth
+            percent_error = 100 * abs(result - args.ground_truth) / args.ground_truth
             print(
                 f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(percent_error,2)}%."
             )
@@ -208,25 +263,56 @@ def main():
         "Sampling time",
         "Target extraction time",
         "HT time",
+        "Total Time",
         "Percentage error",
-        "Valid nodes/edges",
+        "node num",
+        "Valid nodes/edges/paths",
     ]
 
     print(
-        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[3].capitalize():<25}{headers[4].capitalize(): <25}"
+        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[3].capitalize():<25}{headers[4].capitalize(): <25}{headers[5].capitalize():<25}{headers[6].capitalize():<25}"
     )
     args.logger.info(
-        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[3].capitalize():<25}{headers[4].capitalize(): <25}"
+        f"{headers[0].capitalize(): <25}{headers[1].capitalize(): <25}{headers[2].capitalize():<25}{headers[3].capitalize():<25}{headers[4].capitalize(): <25}{headers[5].capitalize():<25}{headers[6].capitalize():<25}"
     )
 
+    index = 0
+    list_valid = []
     for _, value in args.time_result.items():
-        # print(value)
+        list_valid.append(value[2])
         print(
-            f"{value[0]: <25}{value[1]: <25}{value[4]:<25}{value[3]:<25}{value[2]:<25}"
+            f"{value[0]: <25}{value[1]: <25}{value[4]:<25}{round(value[4]+value[1]+value[0],3):<25}{value[3]:<25}{args.sampling_ratio[index]:<25}{value[2]:<25}"
         )
         args.logger.info(
-            f"{value[0]: <25}{value[1]: <25}{value[4]:<25}{value[3]:<25}{value[2]:<25}"
+            f"{value[0]: <25}{value[1]: <25}{value[4]:<25}{round(value[4]+value[1]+value[0],3):<25}{value[3]:<25}{args.sampling_ratio[index]:<25}{value[2]:<25}"
         )
+        index += 1
+    if args.hypo == 3:
+        h2 = [
+            "user coverage",
+            "movie coverage",
+            "total valid paths",
+            "reverse paths",
+            "self-loops",
+            "density",
+            "diameter",
+        ]
+        print(
+            f"{h2[0].capitalize(): <25}{h2[1].capitalize(): <25}{h2[2].capitalize(): <25}{h2[3].capitalize(): <25}{h2[4].capitalize(): <25}{h2[5].capitalize(): <25}{h2[6].capitalize(): <25}"
+        )
+        args.logger.info(
+            f"{h2[0].capitalize(): <25}{h2[1].capitalize(): <25}{h2[2].capitalize(): <25}{h2[3].capitalize(): <25}{h2[4].capitalize(): <25}{h2[5].capitalize(): <25}{h2[6].capitalize(): <25}"
+        )
+        index = 0
+        for _, value in args.coverage.items():
+            print(
+                f"{value[0]: <25}{value[1]: <25}{value[2]: <25}{round(value[2]-value[3],3): <25}{round(value[3]-list_valid[index],3): <25}{value[4]: <25}{value[5]: <25}"
+            )
+            args.logger.info(
+                f"{value[0]: <25}{value[1]: <25}{value[2]: <25}{round(value[2]-value[3],3): <25}{round(value[3]-list_valid[index],3): <25}{value[4]: <25}{value[5]: <25}"
+            )
+            index += 1
+
     print(
         f"All hypothesis testing for ratio list {args.sampling_ratio} and plotting is finished!"
     )
@@ -235,38 +321,6 @@ def main():
 def getGroundTruth(args, graph, **kwargs):
     time_get_ground_truth = time.time()
     dict_result = {}
-
-    # check if the hypothesis is one-sample or two-sample by their length of attribute list
-    if args.hypo < 10:
-        args.HTtype = "one-sample"
-
-        if (args.attribute is not None) and (len(args.attribute) == 1):
-            # attribute = str(list(args.attribute.keys())[0])
-            pass
-        else:
-            args.logger.error(
-                f"Sorry, args.attribute is None or len(args.attribute) != 1."
-            )
-
-            raise Exception(
-                f"Sorry, args.attribute is None or len(args.attribute) != 1."
-            )
-    else:
-        args.HTtype = "two-sample"
-        assert (
-            args.comparison is not None
-        ), f"{args.dataset} requires the args.comparison parameter."
-
-        if (args.attribute is not None) and (len(args.attribute) == 2):
-            pass
-        else:
-            args.logger.error(
-                f"Sorry, args.attribute is None or len(args.attribute) != 2."
-            )
-
-            raise Exception(
-                f"Sorry, args.attribute is None or len(args.attribute) != 2."
-            )
 
     if args.dataset == "movielens":
         if args.hypo == 1:
@@ -282,6 +336,13 @@ def getGroundTruth(args, graph, **kwargs):
             dict_result[str(list(args.attribute.keys())[0])] = getGenres(
                 args, graph, dimension={"movie": "genre"}
             )[str(list(args.attribute.keys())[0])]
+        elif args.hypo == 3:
+            args.H0 = f"{args.agg} {str(list(args.attribute.keys())[0])} is "
+            args.total_valid = 0
+            args.total_minus_reverse = 0
+            dict_result[str(list(args.attribute.keys())[0])] = getPaths(args, graph)[
+                str(list(args.attribute.keys())[0])
+            ]
 
         else:
             args.logger.error(
@@ -507,6 +568,10 @@ def samplingGraph(args, graph, find_stop=False):
 
     elif args.sampling_method == "RES_Induction":
         result_list, time_used = RES_Induction(
+            args, graph, result_list, time_used_list, find_stop
+        )
+    elif args.sampling_method == "ours":
+        result_list, time_used = OurSampler(
             args, graph, result_list, time_used_list, find_stop
         )
 

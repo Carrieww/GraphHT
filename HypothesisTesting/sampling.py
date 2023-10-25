@@ -14,11 +14,8 @@ def time_sampling_extraction(
     )
     time_used_list["sampling"].append(round(time.time() - time_one_sample_start, 2))
 
-    time_rating_extraction_start = time.time()
-    result_list = new_graph_hypo_result(args, new_graph, result_list, num_sample)
-    time_used_list["sample_graph_by_condition"].append(
-        round(time.time() - time_rating_extraction_start, 2)
-    )
+    result_list = new_graph_hypo_result(args, new_graph, result_list, time_used_list)
+
     return result_list, time_used_list
 
 
@@ -728,6 +725,194 @@ def RES_Induction(args, graph, result_list, time_used_list, find_stop=False):
         time_one_sample_start = time.time()
         model = RandomEdgeSamplerWithInduction(
             number_of_edges=args.ratio,
+            seed=(int(args.seed) * num_sample),
+        )
+        new_graph = model.sample(graph)
+        num_nodes = new_graph.number_of_nodes()
+        num_edges = new_graph.number_of_edges()
+        if find_stop:
+            return [num_nodes, num_edges], []
+        args.logger.info(
+            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+        )
+        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
+        result_list, time_used_list = time_sampling_extraction(
+            args,
+            new_graph,
+            result_list,
+            time_used_list,
+            time_one_sample_start,
+            num_sample,
+        )
+    return result_list, time_used_list
+
+
+from littleballoffur.sampler import Sampler
+import random
+
+
+class newSampler(Sampler):
+    r"""
+    Args:
+        number_of_seeds (int): Number of seed nodes. Default is 10.
+        number_of_nodes (int): Number of nodes to sample. Default is 100.
+        seed (int): Random seed. Default is 42.
+    """
+
+    def __init__(
+        self,
+        condition: list,
+        number_of_seeds: int = 50,
+        number_of_nodes: int = 100,
+        seed: int = 42,
+    ):
+        self.number_of_seeds = number_of_seeds
+        self.number_of_nodes = number_of_nodes
+        self.seed = seed
+        self._set_seed()
+        self.index = None
+        self.path = condition
+
+    def assign_weight(self, graph, node):
+        index = len(self.path)
+        for condition in self.path:
+            flag = True
+            if graph.nodes[node]["label"] == condition["type"]:
+                for attr, v in condition["attribute"].items():
+                    if graph.nodes[node][attr] != v:
+                        flag = False
+                        break
+            else:
+                flag = False
+            if flag:
+                return index
+                # return index  # self._seed_weights.append(index)
+            else:
+                index -= 1
+        if index == 0:
+            return 1  # self._seed_weights.append(1)
+
+    def check_condition(self, graph, node, condition_ind):
+        condition = self.path[condition_ind]
+        if graph.nodes[node]["label"] == condition["type"]:
+            for attr, v in condition["attribute"].items():
+                if graph.nodes[node][attr] != v:
+                    return False
+        return True
+
+    def _reweight(self, graph):
+        """
+        Create new seed weights.
+        """
+        self._seed_weights = []
+        for i in self._seeds:
+            weight = self.assign_weight(graph, i)
+            #### do nothing
+            # self._seed_weights.append(weight)
+
+            #### piece wise
+            threshold = self.number_of_nodes / 2
+            if weight != 0:
+                if len(self._nodes) <= threshold:
+                    pass
+                else:
+                    weight = len(self.path) - weight + 1
+            else:
+                weight = 1
+            self._seed_weights.append(weight)
+
+            #### first 1/4 select first node, 1/4 - 3/4 select user nodes, last 1/4 will uniform selection
+            # if len(self._nodes) <= self.number_of_nodes / 4:
+            #     if weight != len(self.path):
+            #         weight = 1
+            #     else:
+            #         weight = 10
+            # elif (
+            #     self.number_of_nodes / 4
+            #     < len(self._nodes)
+            #     < self.number_of_nodes * 3 / 4
+            # ):
+            #     if weight != len(self.path) - 1:
+            #         weight = 1
+            #     else:
+            #         weight = 10
+            # else:
+            #     weight = 1
+            # self._seed_weights.append(weight)
+
+        weight_sum = np.sum(self._seed_weights)
+        # print(self._seed_weights)
+        self._seed_weights = [
+            float(weight) / weight_sum for weight in self._seed_weights
+        ]
+
+    def _create_initial_seed_set(self, graph):
+        """
+        Choosing initial nodes.
+        """
+        nodes = self.backend.get_nodes(graph)
+        self._seeds = random.sample(nodes, self.number_of_seeds)
+
+    def _do_update(self, graph):
+        """
+        Choose new seed node.
+        """
+        # print(self._seeds)
+        sample = np.random.choice(self._seeds, 1, replace=False, p=self._seed_weights)[
+            0
+        ]
+        self.index = self._seeds.index(sample)
+        #### do nothing
+        new_seed = random.choice(self.backend.get_neighbors(graph, sample))
+
+        #### select according to the path
+        # weight = self.assign_weight(graph, sample)
+        # condition_ind = len(self.path) - weight + 1
+        # if condition_ind > len(self.path) - 1:
+        #     new_seed = random.choice(self.backend.get_neighbors(graph, sample))
+        # else:
+        #     found = False
+        #     for neighbor in self.backend.get_neighbors(graph, sample):
+        #         if self.check_condition(graph, neighbor, condition_ind):
+        #             new_seed = neighbor
+        #             found = True
+        #             break
+        #     if not found:
+        #         new_seed = random.choice(self.backend.get_neighbors(graph, sample))
+
+        self._edges.add((sample, new_seed))
+        self._nodes.add(sample)
+        self._nodes.add(new_seed)
+        self._seeds[self.index] = new_seed
+
+    def sample(self, graph: nx.classes.graph.Graph) -> nx.classes.graph.Graph:
+        """
+        Arg types:
+            * **graph** *(NetworkX graph)* - The graph to be sampled from.
+
+        Return types:
+            * **new_graph** *(NetworkX graph)* - The graph of sampled nodes.
+        """
+        self._nodes = set()
+        self._edges = set()
+        self._deploy_backend(graph)
+        self._check_number_of_nodes(graph)
+        self._create_initial_seed_set(graph)
+        while len(self._nodes) < self.number_of_nodes:
+            self._reweight(graph)
+            self._do_update(graph)
+        new_graph = graph.edge_subgraph(list(self._edges))
+        # new_graph = self.backend.graph_from_edgelist(self._edges)
+        # new_graph = self.backend.get_subgraph(new_graph, self._nodes)
+        return new_graph
+
+
+def OurSampler(args, graph, result_list, time_used_list, find_stop=False):
+    for num_sample in range(args.num_samples):
+        time_one_sample_start = time.time()
+        model = newSampler(
+            args.attribute[str(list(args.attribute.keys())[0])]["path"],
+            number_of_nodes=args.ratio,
             seed=(int(args.seed) * num_sample),
         )
         new_graph = model.sample(graph)
