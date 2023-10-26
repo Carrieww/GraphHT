@@ -308,7 +308,9 @@ def getNodeList(df):
 
 def getRelationList(from_node_name, to_node_name, df, graph):
     edge_list = []
+    count = 0
     for _, row in df.iterrows():
+        count += 1
         edge_attribute = {}
         for k, v in row.items():
             if k[:-3] == "from":
@@ -319,6 +321,8 @@ def getRelationList(from_node_name, to_node_name, df, graph):
                 assert to_node in graph.nodes(), f"{to_node} is not in g"
             else:
                 edge_attribute[k] = v
+        if count % 1000 == 0:
+            print(count)
         # edge_attribute["rate"] = "1"
         edge_list.append((from_node, to_node, edge_attribute))
     return edge_list
