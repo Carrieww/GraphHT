@@ -115,6 +115,16 @@ def logger(args):
     args.logger.setLevel(logging.INFO)
 
 
+def log_global_info(args):
+    # Log global info
+    args.logger.info(f"Dataset: {args.dataset}, Seed: {args.seed}")
+    args.logger.info(f"Sampling Method: {args.sampling_method}")
+    args.logger.info(f"Sampling Ratio: {args.sampling_ratio}")
+    args.logger.info(f"Attribute: {args.attribute}")
+    args.logger.info(f"Aggregation Method: {args.agg}")
+    args.logger.info(f"=========== Start Running ===========")
+
+
 def drawAllRatings(args, rating_summary):
     x = np.arange(0, args.num_samples, 1)
     plt.plot(x, [args.ground_truth] * args.num_samples, label=f"true {args.agg} rating")

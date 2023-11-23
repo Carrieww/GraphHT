@@ -8,27 +8,9 @@ import numpy as np
 import pandas as pd
 import scipy.stats as st
 from config import parse_args
-from new_graph_hypo_postprocess import getEdges, getGenres, getPaths
-from sampling import (
-    CNARW,
-    DBS,
-    FFS,
-    MHRWS,
-    NBRW,
-    PRBS,
-    RES,
-    RNES,
-    RNNS,
-    RNS,
-    SBS,
-    SRW,
-    CommunitySES,
-    FrontierS,
-    RES_Induction,
-    RW_Starter,
-    ShortestPathS,
-    OurSampler,
-)
+from new_graph_hypo_postprocess import getEdges, getNodes, getPaths
+from sampling import sample_graph
+
 
 # from new_graph_hypo_postprocess import new_graph_hypo_result
 from scipy import stats
@@ -180,20 +162,8 @@ def hypo_testing(args, result_list, ratio):
             / args.ground_truth[args.attribute[i]]
             for i in range(len(args.attribute))
         ]
-        percent_error = sum(percent_errors) / lem(percent_errors)
+        percent_error = sum(percent_errors) / len(percent_errors)
 
-        # percent_error_0 = (
-        #     100
-        #     * abs(value[0] - args.ground_truth[str(list(args.attribute.keys())[0])])
-        #     / args.ground_truth[str(list(args.attribute.keys())[0])]
-        # )
-        # percent_error_1 = (
-        #     100
-        #     * abs(value[1] - args.ground_truth[args.attribute[1]])
-        #     / args.ground_truth[args.attribute[1]]
-        # )
-        #
-        # percent_error = (percent_error_0 + percent_error_1) / 2
         for i, attribute in enumerate(args.attribute):
             print(f">>> {attribute}: sampled result is {value[i]}.")
             args.logger.info(f">>> {attribute}: sampled result is {value[i]}.")
@@ -203,28 +173,6 @@ def hypo_testing(args, result_list, ratio):
             args.logger.info(
                 f">>> Percentage error of {attribute} at {args.ratio} sampling ratio is {round(percent_errors[i], 2)}%."
             )
-        #
-        # print(
-        #     f">>> {str(list(args.attribute.keys())[0])}: sampled result is {value[0]}."
-        # )
-        # print(f">>> {args.attribute[1]}: sampled result is {value[1]}.")
-        # args.logger.info(
-        #     f">>> {str(list(args.attribute.keys())[0])}: sampled result is {value[0]}."
-        # )
-        # args.logger.info(f">>> {args.attribute[1]}: sampled result is {value[1]}.")
-        # print(
-        #     f">>> Percentage error of {str(list(args.attribute.keys())[0])} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
-        # )
-        # print(
-        #     f">>> Percentage error of {args.attribute[1]} at {args.ratio} sampling ratio is {round(percent_error_1,2)}%."
-        # )
-        # args.logger.info(
-        #     f">>> Percentage error of {str(list(args.attribute.keys())[0])} at {args.ratio} sampling ratio is {round(percent_error_0,2)}%."
-        # )
-        # args.logger.info(
-        #     f">>> Percentage error of {args.attribute[1]} at {args.ratio} sampling ratio is {round(percent_error_1,2)}%."
-        # )
-
         args.time_result[args.ratio].append(round(percent_error, 2))
 
         # args.result[ratio] = result_list
@@ -379,57 +327,28 @@ def getGroundTruth(args, graph):
 
     # define hypothesis and data processing for each dataset
     # 1: edge hypo; 2: node hypo; 3: path hypo
-    args.H0 = f"{args.agg} {str(list(args.attribute.keys())[0])} is "
-    if args.dataset == "movielens":
-        if args.hypo == 1:
-            dict_result[str(list(args.attribute.keys())[0])] = getEdges(args, graph)[
-                str(list(args.attribute.keys())[0])
-            ]
-        elif args.hypo == 2:
-            dict_result[str(list(args.attribute.keys())[0])] = getGenres(
-                args, graph, dimension={"movie": "genre"}
-            )[str(list(args.attribute.keys())[0])]
-        elif args.hypo == 3:
-            args.total_valid = 0
-            args.total_minus_reverse = 0
-            dict_result[str(list(args.attribute.keys())[0])] = getPaths(args, graph)[
-                str(list(args.attribute.keys())[0])
-            ]
-        else:
-            args.logger.error(
-                f"Sorry, {args.hypo} is not supported for {args.dataset}."
-            )
-            raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+    # Check if the dataset is supported
+    if args.dataset not in {"movielens", "citation", "yelp"}:
+        args.logger.error(f"Sorry, {args.dataset} is not supported.")
+        raise Exception(f"Sorry, {args.dataset} is not supported.")
 
-    elif args.dataset == "citation":
-        if args.hypo == 1:
-            dict_result[str(list(args.attribute.keys())[0])] = getEdges(args, graph)[
-                str(list(args.attribute.keys())[0])
-            ]
-        elif args.hypo == 2:
-            dict_result[str(list(args.attribute.keys())[0])] = getGenres(
-                args, graph, dimension={"paper": "citation"}
-            )[str(list(args.attribute.keys())[0])]
-        else:
-            args.logger.error(
-                f"Sorry, {args.hypo} is not supported for {args.dataset}."
-            )
-            raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+    attribute_key = str(list(args.attribute.keys())[0])
+    args.H0 = f"{args.agg} {attribute_key} is "
 
-    elif args.dataset == "yelp":
-        if args.hypo == 1:
-            dict_result[str(list(args.attribute.keys())[0])] = getEdges(args, graph)[
-                str(list(args.attribute.keys())[0])
-            ]
-        elif args.hypo == 2:
-            dict_result[str(list(args.attribute.keys())[0])] = getGenres(
-                args, graph, dimension={"business": "stars"}
-            )[str(list(args.attribute.keys())[0])]
-        else:
-            args.logger.error(
-                f"Sorry, {args.hypo} is not supported for {args.dataset}."
-            )
-            raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+    if args.hypo == 1:
+        dict_result[attribute_key] = getEdges(args, graph)[attribute_key]
+    elif args.hypo == 2:
+        args.dimension = args.attribute[attribute_key]["dimension"]
+        dict_result[attribute_key] = getNodes(args, graph, dimension=args.dimension)[
+            attribute_key
+        ]
+    elif args.hypo == 3:
+        args.total_valid = 0
+        args.total_minus_reverse = 0
+        dict_result[attribute_key] = getPaths(args, graph)[attribute_key]
+    else:
+        args.logger.error(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
+        raise Exception(f"Sorry, {args.hypo} is not supported for {args.dataset}.")
 
     # check if there are valid nodes/edges/paths
     if len(dict_result[str(list(args.attribute.keys())[0])]) == 0:
@@ -533,84 +452,19 @@ def samplingGraph(args, graph):
         "RES",
         "RNES",
         "RES_Induction",
-        "OurSampler",
+        "ours",
     ]
 
     # if the sampling method is supported, call the selected function and update result and time tracking
     if args.sampling_method in supported_methods:
-        sampling_function = globals()[args.sampling_method]
-        result_list, time_used = sampling_function(
-            args, graph, result_list, time_used_list
+        # sampling_function = globals()[args.sampling_method]
+        result_list, time_used = sample_graph(
+            args, graph, result_list, time_used_list, args.sampling_method
         )
     else:
         # log an error and raise an exception
         args.logger.error(f"Sorry, we don't support {args.sampling_method}.")
         raise Exception(f"Sorry, we don't support {args.sampling_method}.")
-    # ##############################
-    # ######## Exploration #########
-    # ##############################
-    # if args.sampling_method == "RNNS":
-    #     result_list, time_used = RNNS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "SRW":
-    #     result_list, time_used = SRW(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "ShortestPathS":
-    #     result_list, time_used = ShortestPathS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "MHRWS":
-    #     result_list, time_used = MHRWS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "CommunitySES":
-    #     result_list, time_used = CommunitySES(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "CNARW":
-    #     result_list, time_used = CNARW(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "FFS":
-    #     result_list, time_used = FFS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "SBS":
-    #     result_list, time_used = SBS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "FrontierS":
-    #     result_list, time_used = FrontierS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "NBRW":
-    #     result_list, time_used = NBRW(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "RW_Starter":
-    #     result_list, time_used = RW_Starter(args, graph, result_list, time_used_list)
-    #
-    # ###############################
-    # ######## Node Sampler #########
-    # ###############################
-    # elif args.sampling_method == "RNS":
-    #     result_list, time_used = RNS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "DBS":
-    #     result_list, time_used = DBS(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "PRBS":
-    #     result_list, time_used = PRBS(args, graph, result_list, time_used_list)
-    #
-    # ###############################
-    # ######## Edge Sampler #########
-    # ###############################
-    # elif args.sampling_method == "RES":
-    #     result_list, time_used = RES(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "RNES":
-    #     result_list, time_used = RNES(args, graph, result_list, time_used_list)
-    #
-    # elif args.sampling_method == "RES_Induction":
-    #     result_list, time_used = RES_Induction(args, graph, result_list, time_used_list)
-    # elif args.sampling_method == "ours":
-    #     result_list, time_used = OurSampler(args, graph, result_list, time_used_list)
-    #
-    # else:
-    #     args.logger.error(f"Sorry, we don't support {args.sampling_method}.")
-    #     raise Exception(f"Sorry, we don't support {args.sampling_method}.")
 
     # calculate and log the avg time for the sampling method
     time_one_sample = sum(time_used["sampling"]) / len(time_used["sampling"])

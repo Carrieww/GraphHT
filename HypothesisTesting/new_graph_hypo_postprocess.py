@@ -10,42 +10,33 @@ from utils import print_hypo_log
 
 def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
     time_rating_extraction_start = time.time()
-    if args.dataset == "movielens":
-        ##### one side #####
-        # edge hypo
+
+    dataset_functions = {
+        "movielens": {"edge": getEdges, "node": getNodes, "path": getPaths},
+        "citation": {"edge": getEdges, "node": getNodes, "path": getPaths},
+        "yelp": {"edge": getEdges, "node": getNodes, "path": getPaths},
+    }
+
+    if args.dataset in dataset_functions:
+        dataset_info = dataset_functions[args.dataset]
+
         if args.hypo == 1:
-            total_result = getEdges(args, new_graph)
-        # node hypo
+            total_result = dataset_info["edge"](args, new_graph)
         elif args.hypo == 2:
-            total_result = getGenres(args, new_graph, dimension={"movie": "genre"})
-        # path hypo
+            total_result = dataset_info["node"](
+                args, new_graph, dimension=args.dimension
+            )
         elif args.hypo == 3:
             args.total_valid = 0
             args.total_minus_reverse = 0
-            total_result = getPaths(args, new_graph)
-        else:
-            raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
-    elif args.dataset == "citation":
-        ##### one side #####
-        # edge hypo
-        if args.hypo == 1:
-            total_result = getEdges(args, new_graph)
-
-        # node hypo
-        elif args.hypo == 2:
-            total_result = getGenres(args, new_graph, dimension={"paper": "citation"})
+            total_result = dataset_info["path"](args, new_graph)
 
         else:
-            raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
-    elif args.dataset == "yelp":
-        # edge hypo
-        if args.hypo == 1:
-            total_result = getEdges(args, new_graph)
-        # node hypo
-        elif args.hypo == 2:
-            total_result = getGenres(args, new_graph, dimension={"business": "stars"})
-        else:
-            raise Exception(f"Sorry, we don't support {args.hypo} for {args.dataset}.")
+            raise Exception(
+                f"Sorry, we don't support hypothesis {args.hypo} for {args.dataset}."
+            )
+    else:
+        raise Exception(f"Sorry, we don't support the dataset {args.dataset}.")
 
     if str(list(args.attribute.keys())[0]) not in total_result:
         total_result[list(args.attribute.keys())[0]] = []
@@ -57,6 +48,7 @@ def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
         if len(attribute.split("+")) == 1:
             if args.agg == "mean":
                 if len(v) > 1:
+                    print(max(v), len(v))
                     variance = statistics.variance(v)
                     # print(f"The variance is {round(variance,3)}.")
                     # args.logger.info(f"The variance is {round(variance,3)}.")
@@ -84,6 +76,7 @@ def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
     time_used_list["sample_graph_by_condition"].append(
         round(time.time() - time_rating_extraction_start, 2)
     )
+
     if args.hypo == 3:
         result["total_valid"] = args.total_valid
         result["total_minus_reverse"] = args.total_minus_reverse
@@ -106,16 +99,13 @@ def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
     return result_list
 
 
-def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
+def getNodes(args, new_graph, dimension):  # dimension = {"movie":"genre"}
     total_result = defaultdict(list)
     total_result_repeat = defaultdict(list)
     if len(list(args.attribute)) == 1:
         for condition_name, condition_dict in args.attribute.items():
             # The condition is on the dimension node only!
-            if (
-                len(list(condition_dict)) == 2
-                and list(condition_dict.keys())[1] == list(dimension.keys())[0]
-            ):
+            if len(condition_dict) == 3 and list(dimension.keys())[0] in condition_dict:
                 attribute_condition_dict = condition_dict[list(dimension.keys())[0]]
                 node_attribute = nx.get_node_attributes(new_graph, "label")
 
@@ -163,6 +153,7 @@ def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
                             raise Exception("Wrong code")
                 distinct_nodes = list(set(total_result_repeat[condition_name]))
                 for i in distinct_nodes:
+                    assert new_graph.nodes[i]["label"] == list(dimension.keys())[0]
                     total_result[condition_name].append(
                         new_graph.nodes[i][list(dimension.values())[0]]
                     )
@@ -173,9 +164,7 @@ def getGenres(args, new_graph, dimension):  # dimension = {"movie":"genre"}
 
 
 def checkCondition(args, condition_dict, new_graph, node_index):
-    if (
-        new_graph.nodes[node_index]["label"] in condition_dict
-    ):  # condition_dict={"node label":{attribute condition}}
+    if new_graph.nodes[node_index]["label"] in condition_dict:
         attribute_condition_dict = condition_dict[new_graph.nodes[node_index]["label"]]
         for k, v in attribute_condition_dict.items():  # {"gender":"M"}}
             if new_graph.nodes[node_index][k] == v:
@@ -214,8 +203,6 @@ def getEdges(args, new_graph):
                 continue
 
             if flag:
-                # print(new_graph.nodes[from_node])
-                # print(new_graph.nodes[to_node])
                 total_result[condition_name].append(value)
 
     return total_result
@@ -306,60 +293,6 @@ def getPaths_old(args, new_graph):
                                                 total_result[condition_name].append(
                                                     (rat_1 + rat_2) / 2
                                                 )
-
-    # if len(list(args.attribute)) == 1:
-    #     for condition_name, condition_dict in args.attribute.items():
-    #         assert (
-    #             "path" in condition_dict
-    #         ), f"hypo {args.hypo} must require path information in args.attribute."
-    #         path_info = condition_dict["path"]
-    #         print(len(path_info), list(path_info.keys()))
-    #         if len(path_info) == 3:
-    #             obj_1_node_dict = nx.get_node_attributes(
-    #                 new_graph, list(list(path_info.values())[0].keys())[0]
-    #             )
-    #             list_1 = [
-    #                 k
-    #                 for k, v in obj_1_node_dict.items()
-    #                 if v == list(list(path_info.values())[0].values())[0]
-    #             ]
-    #             obj_2_node_dict = nx.get_node_attributes(
-    #                 new_graph, list(list(path_info.values())[2].keys())[0]
-    #             )
-    #             list_2 = [
-    #                 k
-    #                 for k, v in obj_2_node_dict.items()
-    #                 if v == list(list(path_info.values())[2].values())[0]
-    #             ]
-    #             result = []
-    #             print(
-    #                 f"finish preparing two lists, list_1: {len(list_1)}, list_2: {len(list_2)}"
-    #             )
-    #             for s in list_1:
-    #                 print(s)
-    #                 for t in list_2:
-    #                     if s != t:
-    #                         result = result + list(
-    #                             nx.all_simple_paths(
-    #                                 new_graph,
-    #                                 source=s,
-    #                                 target=t,
-    #                                 cutoff=len(path_info) - 1,
-    #                             )
-    #                         )
-    #             for res in result:
-    #                 rating_list_in_path = []
-    #                 for index in range(len(res) - 1):
-    #                     print("====")
-    #                     rating_list_in_path.append(
-    #                         new_graph.edges[res[index], res[index + 1]]["rating"]
-    #                     )
-    #                     print(new_graph.edges[res[index], res[index + 1]]["rating"])
-    #                 total_result[condition_name].append(
-    #                     sum(rating_list_in_path) / len(rating_list_in_path)
-    #                 )
-    #         else:
-    #             raise Exception("Sorry we do not support your path!")
     else:
         raise Exception("Sorry we only support one condition_name")
     return total_result
@@ -369,12 +302,6 @@ def find_paths(
     args, graph, path_info, current_path, current_node, depth, path_count_map
 ):
     if depth == len(path_info):
-        # All conditions are satisfied, add the path to the result
-        # str_current_path = [str(i) for i in current_path]
-        # key = ".".join(str_current_path)
-        # if path_count_map.get(key) is None:
-        #     path_count_map[key] = 1
-
         str_current_path = [str(i) for i in current_path]
         key = ".".join(str_current_path)
         str_current_path.reverse()
@@ -449,20 +376,22 @@ def getPaths(args, new_graph):
             user_set = set()
             movie_set = set()
             if "edge" in condition_dict.keys():
+                extract_edge_attr = condition_dict["edge"]
                 for r in path_count_map.keys():
                     r = list(map(int, r.split(".")))
                     user_set.update([r[1]])
                     movie_set.update([r[0], r[2]])
+                    res = []
+                    for index in range(len(r) - 1):
+                        e = (r[index], r[index + 1])
+                        if extract_edge_attr in new_graph.edges[e].keys():
+                            res.append(new_graph.edges[e][extract_edge_attr])
 
-                    rating_list_in_path = [
-                        new_graph.edges[r[i], r[i + 1]]["rating"]
-                        for i in range(len(r) - 1)
-                    ]
-                    total_result[condition_name].append(
-                        sum(rating_list_in_path) / len(rating_list_in_path)
-                    )
+                    total_result[condition_name].append(sum(res) / len(res))
 
-            else:  # node in dict, "node": {"index":2,"attribute":"age"}
+            elif (
+                "node" in condition_dict.keys()
+            ):  # node in dict, "node": {"index":2,"attribute":"age"}
                 extract_node_index = condition_dict["node"]["index"]
                 extract_node_attr = condition_dict["node"]["attribute"]
 
@@ -471,9 +400,13 @@ def getPaths(args, new_graph):
                     r = [int(i) for i in r]
                     user_set.update([r[1]])
                     movie_set.update([r[0], r[2]])
-                    total_result[condition_name].append(
-                        new_graph.nodes[r[extract_node_index - 1]][extract_node_attr]
-                    )
+                    for node in r:
+                        if new_graph.nodes[node]["label"] == extract_node_index:
+                            total_result[condition_name].append(
+                                new_graph.nodes[node][extract_node_attr]
+                            )
+            else:
+                raise Exception("You must provide the dimension in the attribute.")
             total_result[condition_name + "+user_coverage"].append(len(user_set))
             total_result[condition_name + "+movie_coverage"].append(len(movie_set))
             # print(args.total_valid)

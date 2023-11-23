@@ -8,11 +8,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
     parser.add_argument(
         "--file_num",
         type=int,
-        default=99,
+        default=100,
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
@@ -37,13 +37,13 @@ def parse_args():
     parser.add_argument(
         "--sampling_ratio",
         type=str,
-        default="500\t1000\t1500\t2000\t5000\t10000",  # \t1000\t1500\t2000\t2500\t3000\t5000
+        default="1000\t1100\t1200\t1550\t3600\t7500",  # \t1000\t1500\t2000\t2500\t3000\t5000
         help="Tab-separated list of sampling values.",
     )
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=10,
+        default=1,
         help="number of samples to draw from the original graph.",
     )
 
@@ -53,12 +53,13 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "3-2-1": {
-                "edge": "rating",
+            "ours": {
+                "edge": "writes",
+                "dimension": {"paper": "citation"},
+                "author": {"prolificacy": "low"},
                 "path": [
-                    {"type": "movie", "attribute": {"Thriller": 1}},
-                    {"type": "user", "attribute": {}},
-                    {"type": "movie", "attribute": {"Crime": 1}},
+                    {"type": "author", "attribute": {"prolificacy": "low"}},
+                    {"type": "paper", "attribute": {}},
                 ],
             }
         },
@@ -73,8 +74,8 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=3,
-        help="choosing from: 1, 2...",
+        default=2,
+        help="choosing from: 1, 2, 3",
     )
     # movielens
     # hypo 1 (edge attribute): avg rating of adventure movies > 3.6
@@ -91,6 +92,14 @@ def parse_args():
         type=str,
         default=">",
         help="choosing from: !=, ==, >, <",
+    )
+
+    ### our sampler hyper-parameter
+    parser.add_argument(
+        "--theta",
+        type=int,
+        default=100,
+        help="an integer",
     )
 
     args = parser.parse_args()

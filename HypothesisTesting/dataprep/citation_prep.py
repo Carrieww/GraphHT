@@ -5,22 +5,26 @@ import re
 import networkx as nx
 import numpy as np
 import pandas as pd
+from config import ROOT_DIR
 
 
 def citation_prep(args, author_list_flag=False):
+    # TODO: The current citation prep is wrong.
     if not os.path.isfile(
-        os.path.join(os.getcwd(), "../datasets", args.dataset, "graph.pickle")
+        os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle")
     ):
-        df_paper_author = pd.red_csv(
-            os.path.join(args.dataset_path, "citation_network.csv")
+        df_paper_author = pd.read_csv(
+            os.path.join(ROOT_DIR, "../datasets", args.dataset, "paper_author.csv")
         )
-        df_paper_paper = df_paper_author
+        df_paper_paper = pd.read_csv(
+            os.path.join(ROOT_DIR, "../datasets", args.dataset, "paper_paper.csv")
+        )
         print(f"preparing dataset {args.dataset}.")
         args.logger.info(f"preparing dataset {args.dataset}.")
 
         # prepare node list
         graph = nx.Graph()
-        paper_list = getPaperList(args, df_paper_author)
+        paper_list = getNodeList(df_paper_author)
         graph.add_nodes_from(paper_list)
         if author_list_flag:
             author_list = getAuthorList(args, df_paper_author)
@@ -35,6 +39,7 @@ def citation_prep(args, author_list_flag=False):
         )
         graph.add_edges_from(author_paper_relation_list)
         graph.add_edges_from(paper_paper_relation_list)
+        addAttribute(graph)
 
         # get the largest connected component
         largest_cc = max(nx.connected_components(graph), key=len)
@@ -54,11 +59,43 @@ def citation_prep(args, author_list_flag=False):
         print("loading dataset.")
         graph = pickle.load(
             open(
-                os.path.join(os.getcwd(), "../datasets", args.dataset, "graph.pickle"),
+                os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle"),
                 "rb",
             )
         )
     return graph
+
+
+def addAttribute(graph):
+    import random
+
+    for i in graph.nodes():
+        if graph.nodes[i]["label"] == "author":
+            deg = graph.degree[i]
+            if deg > 3:
+                deg_type = "high"
+            elif 1 < deg <= 3:
+                deg_type = "medium"
+            else:
+                deg_type = "low"
+            graph.nodes[i]["prolificacy"] = deg_type
+            graph.nodes[i]["pub_paper_num"] = deg  # + random.randint(1, 10)
+
+
+def getNodeList(df):
+    df = df.rename(columns={"index": "paper_id"})
+    node_list = []
+    for _, row in df.iterrows():
+        node_attribute = {}
+        for k, v in row.items():
+            if k[-3:] == "_id":
+                node_name = k[:-3] + str(int(v))
+                node_attribute["label"] = k[:-3]
+            else:
+                node_attribute[k] = v
+        node_list.append((node_name, node_attribute))
+
+    return node_list
 
 
 def getPaperList(args, df_paper_author):
@@ -94,6 +131,18 @@ def getPaperList(args, df_paper_author):
         node_attribute["title"] = row[paperTitle_index]
         node_attribute["year"] = row[year_index]
         node_attribute["citation"] = row[citation_index]
+        if row[citation_index] == row[citation_index]:
+            citation = int(row[citation_index])
+            if citation > 3300:
+                popularity = "high"
+            elif 1700 < citation <= 3300:
+                popularity = "medium"
+            else:
+                popularity = "low"
+            node_attribute["popularity"] = popularity
+        else:
+            node_attribute["popularity"] = float("nan")
+
         # print(row[9])
         node_name = row[index_index]
         paper_list.append((node_name, node_attribute))
