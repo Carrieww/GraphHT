@@ -3,6 +3,7 @@ import pickle
 import networkx as nx
 import pandas as pd
 from config import ROOT_DIR
+import numpy as np
 
 # columns_to_keep = ["article_id", "gender", "cust_id", "location", "age"]
 # ages_ml = {
@@ -299,6 +300,12 @@ def getNodeList(df):
             if k[-3:] == "_id":
                 node_name = k[:-3] + str(int(v))
                 node_attribute["label"] = k[:-3]
+            # for yelp dataset only
+            elif k == "categories":
+                categories_list = v.split(", ")
+                if len(categories_list) > 0:
+                    for cat in categories_list:
+                        node_attribute[cat] = 1
             else:
                 node_attribute[k] = v
         node_list.append((node_name, node_attribute))

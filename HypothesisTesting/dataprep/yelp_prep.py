@@ -20,14 +20,14 @@ def yelp_prep(args):
         df_business, df_user, df_review = get_dataset_yelp()
 
         # prepare node lists for business and users
-        print("start preparing movie nodes")
-        movie_list = getNodeList(df_business)
+        print("start preparing business nodes")
+        business_df = getNodeList(df_business)
         print("start preparing user nodes")
         user_list = getNodeList(df_user)
 
         # create an empty graph and add nodes (businesses and users) to the graph
         graph = nx.Graph()
-        graph.add_nodes_from(movie_list)
+        graph.add_nodes_from(business_df)
         graph.add_nodes_from(user_list)
 
         # prepare edge lists based on reviews.
@@ -62,7 +62,15 @@ def yelp_prep(args):
 
 def get_dataset_yelp():
     """A function to retrieve and prepare the Yelp dataframes from raw files"""
-    business_cols = ["city", "state", "stars", "business_id", "review_count"]
+    business_cols = [
+        "city",
+        "state",
+        "stars",
+        "business_id",
+        "review_count",
+        "name",
+        "categories",
+    ]
     user_cols = [
         "average_stars",
         "fans",
@@ -79,6 +87,7 @@ def get_dataset_yelp():
     df_business = pd.read_csv(
         f"{ROOT_DIR}/../datasets/yelp_dataset/yelp_academic_dataset_business.csv"
     )[business_cols].reset_index(drop=True)
+    df_business.loc[df_business["categories"].isna(), "categories"] = ""
     df_business["business_id_new"] = (
         df_business["business_id"].astype("category").cat.codes
     )
