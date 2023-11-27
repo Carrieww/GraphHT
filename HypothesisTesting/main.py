@@ -38,49 +38,123 @@ def main():
 
     graph = prepare_dataset(args)
 
-    run_sampling_and_hypothesis_testing(args, graph)
+    CannotFind = run_sampling_and_hypothesis_testing(args, graph)
 
-    print_results(args)
+    if not CannotFind:
+        print_results(args)
 
 
 def run_sampling_and_hypothesis_testing(args, graph):
     # sample for each sampling ratio
     args.result = defaultdict(list)
-    args.time_result = defaultdict(list)
     args.coverage = defaultdict(list)
 
-    for ratio in args.sampling_ratio:
-        # sampling setup and execution
-        args.valid_edges = []
-        args.variance = []
-        time_ratio_start = time.time()
-        args.ratio = ratio
-        args.logger.info(" ")
-        args.logger.info(f">>> sampling ratio: {args.ratio}")
-        result_list = samplingGraph(args, graph)
+    if args.sampling_ratio == "auto":
+        assert args.epsilon is not None, "epsilon must not be None."
+        assert args.increment is not None, "increment must not be None."
+        assert args.terminate_ratio is not None, "terminate_ratio must not be None."
+        assert args.start_ratio is not None, "start_ratio must not be None."
+        args.ratio = args.start_ratio
+        error = float("Inf")
+        final_sample = args.num_samples
+        trial_sample = 2
+        unchecked = True
+        while error > args.epsilon or unchecked:
+            args.time_result = defaultdict(list)
+            args.valid_edges = []
+            args.variance = []
+            time_ratio_start = time.time()
+            args.logger.info(" ")
+            args.logger.info(f">>> sampling ratio: {args.ratio}")
+            if error <= args.epsilon and unchecked == True:
+                args.num_samples = final_sample
+            else:
+                args.num_samples = trial_sample
+            result_list = samplingGraph(args, graph)
 
-        valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
-        print(f"average valid nodes/edges are {valid_e_n}")
-        args.logger.info(f"average valid nodes/edges are {valid_e_n}")
-        if hasattr(args, "variance"):
-            if len(args.variance) != 0:
-                print(f"average variance is {sum(args.variance)/len(args.variance)}")
-                args.logger.info(
-                    f"average variance is {sum(args.variance)/len(args.variance)}"
-                )
+            result = [i[str(list(args.attribute.keys())[0])] for i in result_list]
+            result = sum(result) / len(result)
 
-        args.time_result[args.ratio].append(valid_e_n)
+            # print percentage error w.r.t. the ground truth
+            error = 100 * abs(result - args.ground_truth) / args.ground_truth
+            print(
+                f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(error,2)}%."
+            )
+            args.logger.info(
+                f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(error,2)}%."
+            )
+            if error > args.epsilon:
+                args.ratio += args.increment
+                if args.ratio >= args.terminate_ratio:
+                    CannotFind = True
+                    break
 
-        # print total time used
-        total_time = time.time() - time_ratio_start
-        total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
-        print(
-            f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
-        )
-        args.logger.info(
-            f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
-        )
-        hypo_testing(args, result_list, ratio)
+            if args.num_samples == final_sample and error <= args.epsilon:
+                unchecked = False
+                args.sampling_ratio = [args.ratio]
+        if CannotFind:
+            print(
+                f"Cannot achieve {args.epsilon} by sampling {int(args.num_nodes/3)} nodes"
+            )
+            args.logger.info(
+                f"Cannot achieve {args.epsilon} by sampling {int(args.num_nodes/3)} nodes"
+            )
+            return CannotFind
+        else:
+            valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
+            print(f"average valid nodes/edges are {valid_e_n}")
+            args.logger.info(f"average valid nodes/edges are {valid_e_n}")
+
+            args.time_result[args.ratio].append(valid_e_n)
+
+            # print total time used
+            total_time = time.time() - time_ratio_start
+            total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
+            print(
+                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+            )
+            args.logger.info(
+                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+            )
+            hypo_testing(args, result_list, args.ratio)
+
+    else:
+        args.time_result = defaultdict(list)
+        for ratio in args.sampling_ratio:
+            # sampling setup and execution
+            args.valid_edges = []
+            args.variance = []
+            time_ratio_start = time.time()
+            args.ratio = ratio
+            args.logger.info(" ")
+            args.logger.info(f">>> sampling ratio: {args.ratio}")
+            result_list = samplingGraph(args, graph)
+
+            valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
+            print(f"average valid nodes/edges are {valid_e_n}")
+            args.logger.info(f"average valid nodes/edges are {valid_e_n}")
+            if hasattr(args, "variance"):
+                if len(args.variance) != 0:
+                    print(
+                        f"average variance is {sum(args.variance)/len(args.variance)}"
+                    )
+                    args.logger.info(
+                        f"average variance is {sum(args.variance)/len(args.variance)}"
+                    )
+
+            args.time_result[args.ratio].append(valid_e_n)
+
+            # print total time used
+            total_time = time.time() - time_ratio_start
+            total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
+            print(
+                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+            )
+            args.logger.info(
+                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+            )
+            hypo_testing(args, result_list, ratio)
+    return False
 
 
 def hypo_testing(args, result_list, ratio):
