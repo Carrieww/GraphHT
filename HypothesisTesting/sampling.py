@@ -81,11 +81,15 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
         elif sampler_type in ["RES", "RNES", "RES_Induction"]:
             model = sampler_class(number_of_edges=args.ratio, seed=seed)
         elif sampler_type == "ours":
+            if args.hypo in [1, 3]:
+                no_repeat = "edge"
+            else:
+                no_repeat = "node"
             model = newSampler(
                 args.attribute[str(list(args.attribute.keys())[0])]["path"],
                 number_of_nodes=args.ratio,
+                no_repeat=no_repeat,
                 seed=seed,
-                theta=args.theta,
             )
         else:
             model = sampler_class(number_of_nodes=args.ratio, seed=seed)
@@ -279,7 +283,7 @@ class newSampler(Sampler):
     def __init__(
         self,
         condition: list,
-        theta: int = 50,
+        no_repeat: str,
         number_of_seeds: int = 50,
         number_of_nodes: int = 100,
         seed: int = 42,
@@ -290,8 +294,10 @@ class newSampler(Sampler):
         self._set_seed()
         self.index = None
         self.path = condition
-        self.theta = theta
         self.good_node_map = {}
+        self.edge_count = 0
+        self.node_count = 0
+        self.no_repeat = no_repeat
 
     def assign_weight(self, graph, node):
         for index, condition in enumerate(self.path):
@@ -350,11 +356,42 @@ class newSampler(Sampler):
             weight = self.assign_weight(graph, node)
         return weight
 
+    def _choose_new_seed(self, graph, sample, neighbors):
+        if self.no_repeat == "edge":
+            return self._choose_seed_with_edge_check(graph, sample, neighbors)
+        elif self.no_repeat == "node":
+            return self._choose_seed_without_node_repeats(graph, sample, neighbors)
+
+    def _choose_seed_with_edge_check(self, graph, sample, neighbors):
+        neighbor_weight = [
+            0.01 if (sample, i) in self._edges else self._check_map_weight(graph, i)
+            for i in neighbors
+        ]
+        return self._calculate_new_seed(graph, neighbors, neighbor_weight)
+
+    def _choose_seed_without_node_repeats(self, graph, sample, neighbors):
+        unvisited_neighbors = set(neighbors) - self._nodes
+        unvisited_neighbors_list = (
+            list(unvisited_neighbors) if unvisited_neighbors else neighbors
+        )
+        neighbor_weight = [
+            self._check_map_weight(graph, i) for i in unvisited_neighbors_list
+        ]
+        return self._calculate_new_seed(
+            graph, unvisited_neighbors_list, neighbor_weight
+        )
+
+    def _calculate_new_seed(self, graph, neighbor_list, neighbor_weight):
+        weight_sum = np.sum(neighbor_weight)
+        norm_seed_weights = [float(weight) / weight_sum for weight in neighbor_weight]
+        return int(
+            np.random.choice(neighbor_list, 1, replace=False, p=norm_seed_weights)[0]
+        )
+
     def _do_update(self, graph):
         """
         Choose new seed node.
         """
-        # print(self._seeds)
         sample = int(
             np.random.choice(self._seeds, 1, replace=False, p=self._norm_seed_weights)[
                 0
@@ -362,23 +399,63 @@ class newSampler(Sampler):
         )
         self.index = int(self._seeds.index(sample))
         neighbors = self.backend.get_neighbors(graph, sample)
-        neighbor_weight = []
-        for i in neighbors:
-            weight = self._check_map_weight(graph, i)
-            neighbor_weight.append(weight)
-        weight_sum = np.sum(neighbor_weight)
-        norm_seed_weights = [float(weight) / weight_sum for weight in neighbor_weight]
-        # print(f"neighbor weight is {norm_seed_weights}")
-        new_seed = int(
-            np.random.choice(neighbors, 1, replace=False, p=norm_seed_weights)[0]
-        )
-        # print(f"new seed is {new_seed}")
 
+        new_seed = self._choose_new_seed(graph, sample, neighbors)
+
+        if (sample, new_seed) in self._edges:
+            self.edge_count += 1
+        if new_seed in self._nodes:
+            self.node_count += 1
         self._edges.add((sample, new_seed))
         self._nodes.add(sample)
         self._nodes.add(new_seed)
         self._seeds[self.index] = new_seed
-        # print(self._seeds)
+
+        # if self.no_repeat == "edge":
+        #     neighbor_weight = []
+        #     for i in neighbors:
+        #         if (sample, i) in self._edges:
+        #             weight = 0.01
+        #         else:
+        #             weight = self._check_map_weight(graph, i)
+        #         neighbor_weight.append(weight)
+        #     weight_sum = np.sum(neighbor_weight)
+        #     norm_seed_weights = [
+        #         float(weight) / weight_sum for weight in neighbor_weight
+        #     ]
+        #     new_seed = int(
+        #         np.random.choice(neighbors, 1, replace=False, p=norm_seed_weights)[0]
+        #     )
+        #
+        # elif self.no_repeat == "node":
+        #     unvisited_neighbors = set(neighbors) - self._nodes
+        #     unvisited_neighbors_list = list(unvisited_neighbors)
+        #     neighbor_weight = []
+        #     if len(unvisited_neighbors_list) == 0:
+        #         unvisited_neighbors_list = neighbors
+        #         pass
+        #     for i in unvisited_neighbors_list:
+        #         weight = self._check_map_weight(graph, i)
+        #         neighbor_weight.append(weight)
+        #
+        #     weight_sum = np.sum(neighbor_weight)
+        #     norm_seed_weights = [
+        #         float(weight) / weight_sum for weight in neighbor_weight
+        #     ]
+        #     new_seed = int(
+        #         np.random.choice(
+        #             unvisited_neighbors_list, 1, replace=False, p=norm_seed_weights
+        #         )[0]
+        #     )
+        #
+        # if (sample, new_seed) in self._edges:
+        #     self.edge_count += 1
+        # if new_seed in self._nodes:
+        #     self.node_count += 1
+        # self._edges.add((sample, new_seed))
+        # self._nodes.add(sample)
+        # self._nodes.add(new_seed)
+        # self._seeds[self.index] = new_seed
 
     def sample(self, graph):
         self._nodes = set()
@@ -390,6 +467,8 @@ class newSampler(Sampler):
             self._reweight(graph)
             self._do_update(graph)
         new_graph = graph.edge_subgraph(list(self._edges))
+        print(f"No. of repeat nodes: {self.node_count}.")
+        print(f"No. of repeat edges: {self.edge_count}.")
         return new_graph
 
 

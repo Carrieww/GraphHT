@@ -48,6 +48,7 @@ def run_sampling_and_hypothesis_testing(args, graph):
     # sample for each sampling ratio
     args.result = defaultdict(list)
     args.coverage = defaultdict(list)
+    CannotFind = False
 
     if args.sampling_ratio == "auto":
         assert args.epsilon is not None, "epsilon must not be None."
