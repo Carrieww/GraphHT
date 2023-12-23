@@ -1,29 +1,22 @@
 import os
-import statistics
 import time
 from collections import defaultdict
 
 import networkx as nx
-import numpy as np
-import pandas as pd
-import scipy.stats as st
 from config import parse_args
 from new_graph_hypo_postprocess import getEdges, getNodes, getPaths
 from sampling import sample_graph
 
 
-# from new_graph_hypo_postprocess import new_graph_hypo_result
-from scipy import stats
 from utils import (
     clean,
-    drawAllRatings,
     get_data,
     logger,
-    print_hypo_log,
     setup_device,
     setup_seed,
-    check_1_sample,
     log_global_info,
+    HypothesisTesting,
+    compute_accuracy,
 )
 
 
@@ -38,136 +31,65 @@ def main():
 
     graph = prepare_dataset(args)
 
-    CannotFind = run_sampling_and_hypothesis_testing(args, graph)
+    run_sampling_and_hypothesis_testing(args, graph)
 
-    if not CannotFind:
-        print_results(args)
+    print_results(args)
 
 
 def run_sampling_and_hypothesis_testing(args, graph):
     # sample for each sampling ratio
+    args.overall_time = time.time()
     args.result = defaultdict(list)
     args.coverage = defaultdict(list)
-    CannotFind = False
-
     if args.sampling_ratio == "auto":
-        assert args.epsilon is not None, "epsilon must not be None."
-        assert args.increment is not None, "increment must not be None."
-        assert args.terminate_ratio is not None, "terminate_ratio must not be None."
-        assert args.start_ratio is not None, "start_ratio must not be None."
-        args.ratio = args.start_ratio
-        error = float("Inf")
-        final_sample = args.num_samples
-        trial_sample = 2
-        unchecked = True
-        while error > args.epsilon or unchecked:
-            args.time_result = defaultdict(list)
-            args.valid_edges = []
-            args.variance = []
-            time_ratio_start = time.time()
-            args.logger.info(" ")
-            args.logger.info(f">>> sampling ratio: {args.ratio}")
-            if error <= args.epsilon and unchecked == True:
-                args.num_samples = final_sample
-            else:
-                args.num_samples = trial_sample
-            result_list = samplingGraph(args, graph)
+        args.sampling_ratio = [
+            int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
+        ]
+        print(f"the list of sampling size is {args.sampling_ratio}")
+        args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
+    args.time_result = defaultdict(list)
+    for ratio in args.sampling_ratio:
+        # sampling setup and execution
+        args.valid_edges = []
+        args.variance = []
+        time_ratio_start = time.time()
+        args.ratio = ratio
+        args.logger.info(f">>> sampling ratio: {args.ratio}")
+        result_list = samplingGraph(args, graph)
 
-            result = [i[str(list(args.attribute.keys())[0])] for i in result_list]
-            result = sum(result) / len(result)
+        valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
+        print(f"average valid nodes/edges are {valid_e_n}")
+        args.logger.info(f"average valid nodes/edges are {valid_e_n}")
+        if hasattr(args, "variance"):
+            if len(args.variance) != 0:
+                print(f"average variance is {sum(args.variance)/len(args.variance)}")
+                args.logger.info(
+                    f"average variance is {sum(args.variance)/len(args.variance)}"
+                )
 
-            # print percentage error w.r.t. the ground truth
-            error = 100 * abs(result - args.ground_truth) / args.ground_truth
-            print(
-                f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(error,2)}%."
-            )
-            args.logger.info(
-                f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(error,2)}%."
-            )
-            if error > args.epsilon:
-                args.ratio += args.increment
-                if args.ratio >= args.terminate_ratio:
-                    CannotFind = True
-                    break
+        args.time_result[args.ratio].append(valid_e_n)
 
-            if args.num_samples == final_sample and error <= args.epsilon:
-                unchecked = False
-                args.sampling_ratio = [args.ratio]
-        if CannotFind:
-            print(
-                f"Cannot achieve {args.epsilon} by sampling {int(args.num_nodes/3)} nodes"
-            )
-            args.logger.info(
-                f"Cannot achieve {args.epsilon} by sampling {int(args.num_nodes/3)} nodes"
-            )
-            return CannotFind
-        else:
-            valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
-            print(f"average valid nodes/edges are {valid_e_n}")
-            args.logger.info(f"average valid nodes/edges are {valid_e_n}")
-
-            args.time_result[args.ratio].append(valid_e_n)
-
-            # print total time used
-            total_time = time.time() - time_ratio_start
-            total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
-            print(
-                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
-            )
-            args.logger.info(
-                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
-            )
-            hypo_testing(args, result_list, args.ratio)
-
-    else:
-        args.time_result = defaultdict(list)
-        for ratio in args.sampling_ratio:
-            # sampling setup and execution
-            args.valid_edges = []
-            args.variance = []
-            time_ratio_start = time.time()
-            args.ratio = ratio
-            args.logger.info(" ")
-            args.logger.info(f">>> sampling ratio: {args.ratio}")
-            result_list = samplingGraph(args, graph)
-
-            valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
-            print(f"average valid nodes/edges are {valid_e_n}")
-            args.logger.info(f"average valid nodes/edges are {valid_e_n}")
-            if hasattr(args, "variance"):
-                if len(args.variance) != 0:
-                    print(
-                        f"average variance is {sum(args.variance)/len(args.variance)}"
-                    )
-                    args.logger.info(
-                        f"average variance is {sum(args.variance)/len(args.variance)}"
-                    )
-
-            args.time_result[args.ratio].append(valid_e_n)
-
-            # print total time used
-            total_time = time.time() - time_ratio_start
-            total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
-            print(
-                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
-            )
-            args.logger.info(
-                f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
-            )
-            hypo_testing(args, result_list, ratio)
-    return False
+        # print total time used
+        total_time = time.time() - time_ratio_start
+        total_time_format = time.strftime("%H:%M:%S", time.gmtime(total_time))
+        print(
+            f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+        )
+        args.logger.info(
+            f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
+        )
+        get_results(args, result_list, ratio)
 
 
-def hypo_testing(args, result_list, ratio):
+def get_results(args, result_list, ratio):
     if args.HTtype == "one-sample":
-        # print(result_list)
         if args.hypo == 3:
             user_cov_list = [
-                i[str(list(args.attribute.keys())[0]) + "+user_coverage"]
+                i[str(list(args.attribute.keys())[0]) + "+user_coverage"][0]
                 for i in result_list
             ]
             movie_cov_list = [
-                i[str(list(args.attribute.keys())[0]) + "+movie_coverage"]
+                i[str(list(args.attribute.keys())[0]) + "+movie_coverage"][0]
                 for i in result_list
             ]
             density_list = [i["density"] for i in result_list]
@@ -203,21 +125,20 @@ def hypo_testing(args, result_list, ratio):
                 f">>> Diameter of sampling result at {args.ratio} sampling ratio is {round(diameter,3)}."
             )
 
-        result_list = [i[str(list(args.attribute.keys())[0])] for i in result_list]
-        result = sum(result_list) / len(result_list)
+        result = [i[str(list(args.attribute.keys())[0])] for i in result_list]
 
-        # print percentage error w.r.t. the ground truth
-        percent_error = 100 * abs(result - args.ground_truth) / args.ground_truth
+        # compute accuracy
+        accuracy = compute_accuracy(args.ground_truth, result)
         print(
-            f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+            f">>> Accuracy of sampling result is {round(accuracy,4)} at {args.ratio} sampling ratio."
         )
         args.logger.info(
-            f">>> Percentage error of sampling result {round(result,4)} w.r.t. the ground truth {round(args.ground_truth,4)} at {args.ratio} sampling ratio is {round(percent_error,2)}%."
+            f">>> Accuracy of sampling result is {round(accuracy,4)} at {args.ratio} sampling ratio."
         )
 
-        args.time_result[args.ratio].append(round(percent_error, 2))
+        args.time_result[args.ratio].append(round(accuracy, 2))
         args.result[ratio] = result_list
-        HypothesisTesting(args, result_list)
+        # HypothesisTesting(args, result_list)
         args.logger.info(
             f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
         )
@@ -251,7 +172,7 @@ def hypo_testing(args, result_list, ratio):
         args.time_result[args.ratio].append(round(percent_error, 2))
 
         # args.result[ratio] = result_list
-
+        # TODO: hypothesis testing may not be compatible for two-samply hypothesis
         HypothesisTesting(args, result_list_new)
         args.logger.info(
             f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
@@ -270,9 +191,8 @@ def print_results(args):
     headers = [
         "Sampling time",
         "Target extraction time",
-        "HT time",
         "Total Time",
-        "Percentage error",
+        "Accuracy",
         "node num",
         "Valid nodes/edges/paths",
     ]
@@ -283,30 +203,40 @@ def print_results(args):
     args.logger.info(header_format)
 
     list_valid = []
+    txt_filepath = "_".join(args.log_filepath.split("_")[:-1]) + ".txt"
+    with open(txt_filepath, "w") as file:
+        file.write(
+            "Sampling Time\tTarget Extraction Time\tTotal Time\tAccuracy\tSampling Ratio\tValid Nodes Edges Paths\n"
+        )
     for index, (ratio, value) in enumerate(args.time_result.items()):
         (
             sampling_time,
             target_extraction_time,
             valid_nodes_edges_paths,
-            percent_error,
-            ht_time,
+            accuracy,
         ) = value
-        total_time = round(target_extraction_time + sampling_time + ht_time, 3)
+        total_time = round(target_extraction_time + sampling_time, 2)
         list_valid.append(valid_nodes_edges_paths)
 
         # Print the results
         result_format = (
             f"{sampling_time:.2f}".ljust(25)
             + f"{target_extraction_time:.2f}".ljust(25)
-            + f"{ht_time:.2f}".ljust(25)
             + f"{total_time:.2f}".ljust(25)
-            + f"{percent_error:.2f}".ljust(25)
+            + f"{accuracy:.2f}".ljust(25)
             + f"{args.sampling_ratio[index]}".ljust(25)
             + f"{valid_nodes_edges_paths:.2f}".ljust(25)
         )
-
         print(result_format)
         args.logger.info(result_format)
+
+        # Open a file in write mode
+        with open(txt_filepath, "a") as file:
+            # Write the headers if needed
+            file.write(
+                f"{sampling_time:.2f}\t{target_extraction_time:.2f}\t{total_time:.2f}\t{accuracy:.2f}\t{args.sampling_ratio[index]}\t{valid_nodes_edges_paths:.2f}\n"
+            )
+
     if args.hypo == 3:
         summary_statistics_headers = [
             "User Coverage",
@@ -384,14 +314,10 @@ def prepare_dataset(args):
     else:
         raise Exception(f"Sorry we do not support {args.dataset} dataset.")
 
-    # check x-sample
-    check_1_sample(args)
-
     if args.HTtype == "one-sample":
         args.ground_truth = args.ground_truth[str(list(args.attribute.keys())[0])]
-        args.CI = []
-        args.popmean_lower = round(args.ground_truth - 0.05, 2)
-        args.popmean_higher = round(args.ground_truth + 0.05, 2)
+    else:
+        raise Exception("Sorry we do not support other HTtype.")
 
     return graph
 
@@ -408,7 +334,6 @@ def getGroundTruth(args, graph):
         raise Exception(f"Sorry, {args.dataset} is not supported.")
 
     attribute_key = str(list(args.attribute.keys())[0])
-    args.H0 = f"{args.agg} {attribute_key} is "
 
     if args.hypo == 1:
         dict_result[attribute_key] = getEdges(args, graph)[attribute_key]
@@ -444,64 +369,20 @@ def getGroundTruth(args, graph):
     ground_truth = {}
     for k, v in dict_result.items():
         if args.agg == "mean":
-            ground_truth[k] = sum(v) / len(v)
-        elif args.agg == "max":
-            ground_truth[k] = max(v)
-        elif args.agg == "min":
-            ground_truth[k] = min(v)
-        elif args.agg == "variance":
-            ground_truth[k] = statistics.variance(v)
-        elif args.agg == "number":
-            ground_truth[k] = v[0]
+            ground_truth_result = HypothesisTesting(args, v, 1)
+            avg_v = round(sum(v) / len(v), 2)
+            args.logger.info(
+                f"{k}: The ground truth ({avg_v}) result is {ground_truth_result}, taking time {round(time.time()-time_get_ground_truth, 2)}."
+            )
+            print(
+                f"{k}: The ground truth ({avg_v}) result is {ground_truth_result}, taking time {round(time.time()-time_get_ground_truth, 2)}."
+            )
+            ground_truth[k] = ground_truth_result  # sum(v) / len(v)
         else:
             args.logger.error(f"Sorry, we don't support {args.agg}.")
             raise Exception(f"Sorry, we don't support {args.agg}.")
 
-    # log the ground truth and time taken
-    time_now = time.time()
-    for k, v in ground_truth.items():
-        args.logger.info(
-            f"{k}: The ground truth is {round(v,5)}, taking time {round(time_now-time_get_ground_truth,5)}."
-        )
     return ground_truth
-
-
-def HypothesisTesting(args, result_list, verbose=1):
-    time_start_HT = time.time()
-
-    if args.HTtype == "one-sample":
-        # Test H1: avg rating = popmean
-        t_stat, p_value = stats.ttest_1samp(
-            result_list, popmean=args.ground_truth, alternative="two-sided"
-        )
-        if verbose == 1:
-            print_hypo_log(args, t_stat, p_value, args.H0, twoSides=True)
-    else:
-        if args.comparison == "==" or args.comparison == "!=":
-            alternative = "two-sided"
-        elif args.comparison == "<":
-            alternative = "greater"
-        else:
-            alternative = "less"
-
-        # H0: equal variance
-        data1 = result_list[str(list(args.attribute.keys())[0])]
-        data2 = result_list[args.attribute[1]]
-        t_stat, p_value = stats.levene(data1, data2, center="mean")
-        print(f"p-value: {p_value} (< 0.05 means unequal variance).")
-        args.logger.info(f"p-value: {p_value} (< 0.05 means unequal variance).")
-
-        # hypothesis testing
-        t_stat, p_value = stats.ttest_ind(
-            a=data1, b=data2, equal_var=True, alternative=alternative
-        )
-        if verbose == 1:
-            print_hypo_log(args, t_stat, p_value, args.H0)
-
-    ht_time = round(time.time() - time_start_HT, 5)
-    print(f">>> Time for hypothesis testing is {ht_time}.\n")
-    args.logger.info(f">>> Time for hypothesis testing is {ht_time}.\n")
-    args.time_result[args.ratio].append(ht_time)
 
 
 def samplingGraph(args, graph):

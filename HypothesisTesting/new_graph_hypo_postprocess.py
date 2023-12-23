@@ -5,7 +5,7 @@ from collections import defaultdict
 import networkx as nx
 from scipy import stats
 
-from utils import print_hypo_log
+from utils import print_hypo_log, HypothesisTesting
 
 
 def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
@@ -47,32 +47,18 @@ def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
         args.valid_edges.append(len(v))
         if len(attribute.split("+")) == 1:
             if args.agg == "mean":
-                if len(v) > 1:
-                    print(max(v), len(v))
-                    variance = statistics.variance(v)
-                    # print(f"The variance is {round(variance,3)}.")
-                    # args.logger.info(f"The variance is {round(variance,3)}.")
-                    args.variance.append(variance)
-
-                    t_stat, p_value = stats.ttest_1samp(
-                        v, popmean=args.ground_truth, alternative="two-sided"
-                    )
-                    print_hypo_log(args, t_stat, p_value, args.H0, twoSides=True)
-
-                    result[attribute] = sum(v) / len(v)
+                if len(v) != 0:
+                    hypo_result = HypothesisTesting(args, v, 1)
+                    result[attribute] = hypo_result
                 else:
-                    result[attribute] = float("nan")
-            elif args.agg == "max":
-                result[attribute] = max(v)
-            elif args.agg == "min":
-                result[attribute] = min(v)
-            elif args.agg == "variance":
-                result[attribute] = statistics.variance(v)
+                    result[attribute] = None
+
             else:
                 args.logger.error(f"Sorry, we don't support {args.agg}.")
                 raise Exception(f"Sorry, we don't support {args.agg}.")
         else:
-            result[attribute] = v[0]
+            # pass
+            result[attribute] = v
     time_used_list["sample_graph_by_condition"].append(
         round(time.time() - time_rating_extraction_start, 2)
     )
@@ -167,7 +153,7 @@ def checkCondition(args, condition_dict, new_graph, node_index):
     if new_graph.nodes[node_index]["label"] in condition_dict:
         attribute_condition_dict = condition_dict[new_graph.nodes[node_index]["label"]]
         for k, v in attribute_condition_dict.items():  # {"gender":"M"}}
-            if new_graph.nodes[node_index][k] == v:
+            if k in new_graph.nodes[node_index] and new_graph.nodes[node_index][k] == v:
                 pass
             else:
                 return False
@@ -205,96 +191,6 @@ def getEdges(args, new_graph):
             if flag:
                 total_result[condition_name].append(value)
 
-    return total_result
-
-
-def getPaths_old(args, new_graph):
-    total_result = defaultdict(list)
-    if len(list(args.attribute)) == 1:
-        for condition_name, condition_dict in args.attribute.items():
-            assert (
-                "path" in condition_dict
-            ), f"hypo {args.hypo} must require path information in args.attribute."
-            path_info = condition_dict["path"]
-            # count = 1
-            # count_true = 1
-            tmp = new_graph.nodes()
-            for ini_node in tmp:
-                # print(count)
-                # count += 1
-                # check ini node has the correct label
-                if (
-                    new_graph.nodes[ini_node]["label"]
-                    == list(path_info.keys())[0].split("_")[0]
-                ):
-                    # check condition
-                    flag = True
-                    for k, v in list(path_info.values())[0].items():
-                        if new_graph.nodes[ini_node][k] != v:
-                            flag = False
-                    if flag:
-                        # check neighbor
-                        neighbor_list = [n for n in new_graph.neighbors(ini_node)]
-                        for neighbor in neighbor_list:
-                            # check 1st neighbor has the correct label
-                            if (
-                                new_graph.nodes[neighbor]["label"]
-                                == list(path_info.keys())[1].split("_")[0]
-                            ):
-                                # check condition
-                                first_flag = True
-                                for k, v in list(path_info.values())[1].items():
-                                    if new_graph.nodes[neighbor][k] != v:
-                                        first_flag = False
-                                if first_flag:
-                                    # check 2nd neighbor has the correct label
-                                    next_neighbor_list = [
-                                        n for n in new_graph.neighbors(neighbor)
-                                    ]
-                                    for next_neighbor in next_neighbor_list:
-                                        if (next_neighbor != ini_node) and (
-                                            new_graph.nodes[next_neighbor]["label"]
-                                            == list(path_info.keys())[2].split("_")[0]
-                                        ):
-                                            # if (
-                                            #     new_graph.nodes[next_neighbor]["label"]
-                                            #     == list(path_info.keys())[2].split("_")[0]
-                                            # ):
-                                            # check condition
-                                            second_flag = True
-                                            for k, v in list(path_info.values())[
-                                                2
-                                            ].items():
-                                                if (
-                                                    new_graph.nodes[next_neighbor][k]
-                                                    != v
-                                                ):
-                                                    second_flag = False
-                                            # ensure Action-user-Crime will not be repeatedly
-                                            # added to result if crime movie is also an action
-                                            # one and action one contains crime genre
-                                            for k, v in list(path_info.values())[
-                                                0
-                                            ].items():
-                                                if (
-                                                    new_graph.nodes[next_neighbor][k]
-                                                    == v
-                                                ):
-                                                    second_flag = False
-                                            if second_flag:
-                                                # print(f"{count_true}-th new result")
-                                                # count_true += 1
-                                                rat_1 = new_graph.edges[
-                                                    ini_node, neighbor
-                                                ]["rating"]
-                                                rat_2 = new_graph.edges[
-                                                    neighbor, next_neighbor
-                                                ]["rating"]
-                                                total_result[condition_name].append(
-                                                    (rat_1 + rat_2) / 2
-                                                )
-    else:
-        raise Exception("Sorry we only support one condition_name")
     return total_result
 
 
@@ -386,9 +282,10 @@ def getPaths(args, new_graph):
                         e = (r[index], r[index + 1])
                         if extract_edge_attr in new_graph.edges[e].keys():
                             res.append(new_graph.edges[e][extract_edge_attr])
-
-                    total_result[condition_name].append(sum(res) / len(res))
-
+                    # average
+                    # total_result[condition_name].append(sum(res) / len(res))
+                    # difference
+                    total_result[condition_name].append(abs(res[0] - res[1]))
             elif (
                 "node" in condition_dict.keys()
             ):  # node in dict, "node": {"index":2,"attribute":"age"}

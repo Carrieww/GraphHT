@@ -4,15 +4,11 @@ import random
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
+from scipy import stats
 from dataprep.citation_prep import citation_prep
 from dataprep.movielens_prep import movielens_prep
 from dataprep.yelp_prep import yelp_prep
-
-# from main import samplingGraph
 
 
 def setup_device(args):
@@ -59,7 +55,7 @@ def logger(args):
                 string = str(list(args.attribute.keys())[0]) + str(
                     list(args.attribute.keys())[1]
                 )
-            log_filepath = os.path.join(
+            args.log_filepath = os.path.join(
                 args.log_folderPath,
                 args.dataset
                 + "_hypo"
@@ -85,7 +81,7 @@ def logger(args):
             )
         else:
             raise Exception(f"Sorry we dont support more than 2 comparisons.")
-        log_filepath = os.path.join(
+        args.log_filepath = os.path.join(
             args.log_folderPath,
             args.dataset
             + "_hypo"
@@ -105,7 +101,7 @@ def logger(args):
         os.makedirs(args.log_folderPath)
 
     logging.basicConfig(
-        filename=log_filepath, format="%(asctime)s %(message)s", filemode="w"
+        filename=args.log_filepath, format="%(asctime)s %(message)s", filemode="w"
     )
 
     # Creating an object
@@ -242,35 +238,48 @@ def get_data(args):
         raise Exception(f"Sorry, we don't support {args.dataset}.")
 
 
-def check_1_sample(args):
-    """check if the hypothesis is one-sample or two-sample by their length of attribute list"""
-    if args.hypo < 10:
-        args.HTtype = "one-sample"
-
-        if (args.attribute is not None) and (len(args.attribute) == 1):
-            # attribute = str(list(args.attribute.keys())[0])
-            pass
+def HypothesisTesting(args, result_list, verbose=1):
+    if args.HTtype == "one-sample":
+        if args.comparison == "==" or args.comparison == "!=":
+            alternative = "two-sided"
+        elif args.comparison == "<":
+            alternative = "greater"
         else:
-            args.logger.error(
-                f"Sorry, args.attribute is None or len(args.attribute) != 1."
+            alternative = "less"
+        t_stat, p_value = stats.ttest_1samp(
+            result_list, popmean=args.c, alternative=alternative
+        )
+        CI_lower, CI_upper = stats.t.interval(
+            confidence=args.alpha,
+            df=len(result_list) - 1,
+            loc=np.mean(result_list),
+            scale=stats.sem(result_list),
+        )
+        if verbose == 1:
+            args.logger.info(f"\tH0: {args.H0}.")
+            args.logger.info(
+                f"\tT-statistic value: {t_stat:.4f}, P-value: {p_value:.4f}, CI: ({CI_lower:.4f}, {CI_upper:.4f})."
             )
+            if p_value < 0.05:
+                hypo_result = False
+                args.logger.info(
+                    f"The test is significant, we shall reject the null hypothesis."
+                )
+            else:
+                hypo_result = True
+                args.logger.info(
+                    f"The test is NOT significant, we shall accept the null hypothesis."
+                )
+    return hypo_result
 
-            raise Exception(
-                f"Sorry, args.attribute is None or len(args.attribute) != 1."
-            )
+
+def compute_accuracy(ground_truth, result_list):
+    if None in result_list:
+        result_list.remove(None)
+
+    if len(result_list) == 0:
+        return 0
     else:
-        args.HTtype = "two-sample"
-        assert (
-            args.comparison is not None
-        ), f"{args.dataset} requires the args.comparison parameter."
-
-        if (args.attribute is not None) and (len(args.attribute) == 2):
-            pass
-        else:
-            args.logger.error(
-                f"Sorry, args.attribute is None or len(args.attribute) != 2."
-            )
-
-            raise Exception(
-                f"Sorry, args.attribute is None or len(args.attribute) != 2."
-            )
+        matched_results = sum(1 for value in result_list if value == ground_truth)
+        accuracy = matched_results / len(result_list) if len(result_list) > 0 else 0.0
+        return accuracy

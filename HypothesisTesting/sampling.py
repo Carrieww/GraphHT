@@ -94,7 +94,10 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
         else:
             model = sampler_class(number_of_nodes=args.ratio, seed=seed)
 
-        new_graph = model.sample(graph)
+        if sampler_type == "ours":
+            new_graph = model.sample(graph, args)
+        else:
+            new_graph = model.sample(graph)
         num_nodes = new_graph.number_of_nodes()
         num_edges = new_graph.number_of_edges()
 
@@ -111,6 +114,11 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
             time_one_sample_start,
             num_sample,
         )
+        overall_time_spent = round(time.time() - args.overall_time, 2)
+        if overall_time_spent > 7200:
+            raise Exception(
+                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 7200. So we terminate it."
+            )
 
     return result_list, time_used_list
 
@@ -411,53 +419,7 @@ class newSampler(Sampler):
         self._nodes.add(new_seed)
         self._seeds[self.index] = new_seed
 
-        # if self.no_repeat == "edge":
-        #     neighbor_weight = []
-        #     for i in neighbors:
-        #         if (sample, i) in self._edges:
-        #             weight = 0.01
-        #         else:
-        #             weight = self._check_map_weight(graph, i)
-        #         neighbor_weight.append(weight)
-        #     weight_sum = np.sum(neighbor_weight)
-        #     norm_seed_weights = [
-        #         float(weight) / weight_sum for weight in neighbor_weight
-        #     ]
-        #     new_seed = int(
-        #         np.random.choice(neighbors, 1, replace=False, p=norm_seed_weights)[0]
-        #     )
-        #
-        # elif self.no_repeat == "node":
-        #     unvisited_neighbors = set(neighbors) - self._nodes
-        #     unvisited_neighbors_list = list(unvisited_neighbors)
-        #     neighbor_weight = []
-        #     if len(unvisited_neighbors_list) == 0:
-        #         unvisited_neighbors_list = neighbors
-        #         pass
-        #     for i in unvisited_neighbors_list:
-        #         weight = self._check_map_weight(graph, i)
-        #         neighbor_weight.append(weight)
-        #
-        #     weight_sum = np.sum(neighbor_weight)
-        #     norm_seed_weights = [
-        #         float(weight) / weight_sum for weight in neighbor_weight
-        #     ]
-        #     new_seed = int(
-        #         np.random.choice(
-        #             unvisited_neighbors_list, 1, replace=False, p=norm_seed_weights
-        #         )[0]
-        #     )
-        #
-        # if (sample, new_seed) in self._edges:
-        #     self.edge_count += 1
-        # if new_seed in self._nodes:
-        #     self.node_count += 1
-        # self._edges.add((sample, new_seed))
-        # self._nodes.add(sample)
-        # self._nodes.add(new_seed)
-        # self._seeds[self.index] = new_seed
-
-    def sample(self, graph):
+    def sample(self, graph, args):
         self._nodes = set()
         self._edges = set()
         self._deploy_backend(graph)
@@ -469,6 +431,8 @@ class newSampler(Sampler):
         new_graph = graph.edge_subgraph(list(self._edges))
         print(f"No. of repeat nodes: {self.node_count}.")
         print(f"No. of repeat edges: {self.edge_count}.")
+        args.logger.info(f"No. of repeat nodes: {self.node_count}.")
+        args.logger.info(f"No. of repeat edges: {self.edge_count}.")
         return new_graph
 
 

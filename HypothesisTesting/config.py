@@ -8,58 +8,69 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="yelp", help="dataset.")
     parser.add_argument(
         "--file_num",
         type=int,
-        default=100,
+        default=30,
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
         "--sampling_method",
         type=str,
-        default="RES",
+        default="RNS",
         help="sampling method.",
     )
     parser.add_argument(
-        "--sampling_mode",
-        type=str,
-        default=None,
-        help="sampling mode for `SpikyBallS` sampling method.",
-    )  # "edgeball", "hubball", "coreball", "fireball", "firecoreball"
-    parser.add_argument(
         "--checkpoint_name",
         type=str,
-        default="_log",
+        default="_auto",
         help="checkpoint filename suffix.",
+    )
+    parser.add_argument(
+        "--sampling_percent",
+        type=list,
+        default=[0.1, 1],  # \t1000\t1500\t2000\t2500\t3000\t5000
+        help="Tab-separated list of sampling values.",
     )
     # sample size parameter
     parser.add_argument(
         "--sampling_ratio",
         type=str,
-        default="1000\t1100\t1200\t1550\t3600\t7500",  # \t1000\t1500\t2000\t2500\t3000\t5000
+        default="auto",
         help="Tab-separated list of sampling values.",
     )
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=1,
+        default=5,
         help="number of samples to draw from the original graph.",
     )
 
     # parameters for hypothesis
     # now only support one-sample hypothesis on attributes
     parser.add_argument(
+        "--H0",
+        type=str,
+        default="The avg rating difference on path [business in PA - user - business in LA]",
+        help="The null hypothesis.",
+    )
+    parser.add_argument(
+        "--HTtype",
+        type=str,
+        default="one-sample",
+        help="Choose from one-sample or two-sample.",
+    )
+    parser.add_argument(
         "--attribute",
         type=dict,
         default={
-            "ours": {
-                "edge": "writes",
-                "dimension": {"paper": "citation"},
-                "author": {"prolificacy": "low"},
+            "3-1-1": {
+                "edge": "stars",
                 "path": [
-                    {"type": "author", "attribute": {"prolificacy": "low"}},
-                    {"type": "paper", "attribute": {}},
+                    {"type": "business", "attribute": {"state": "ID"}},
+                    {"type": "user", "attribute": {}},
+                    {"type": "business", "attribute": {"state": "IL"}},
                 ],
             }
         },
@@ -74,19 +85,9 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=2,
-        help="choosing from: 1, 2, 3",
+        default=3,
+        help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
     )
-    # movielens
-    # hypo 1 (edge attribute): avg rating of adventure movies > 3.6
-    # hypo 2 (node attribute): avg number of genres a movie has is > 5
-    # hypo 3 (path): avg rating of on path Action-user-Documentary
-
-    # # citation
-    # hypo 1 (edge attribute): avg correlation score of papers in 2008 with its related papers > 3.6
-    # hypo 2 (node attribute): avg citation of paper in 2008 > 2.6
-    # hypo 3 (path): path
-
     parser.add_argument(
         "--comparison",
         type=str,
@@ -94,17 +95,20 @@ def parse_args():
         help="choosing from: !=, ==, >, <",
     )
 
+    parser.add_argument(
+        "--c",
+        type=float,
+        default=4,
+        help="a constant value in the hypothesis",
+    )
+
     ### our sampler hyper-parameter
     parser.add_argument(
-        "--theta",
+        "--alpha",
         type=int,
-        default=100,
+        default=0.95,
         help="an integer",
     )
 
     args = parser.parse_args()
-    if args.sampling_ratio:
-        args.sampling_ratio = [int(value) for value in args.sampling_ratio.split("\t")]
-        # Now, sampling_list is a Python list containing the values
-        # print("Sampling list:", sampling_list)
     return args
