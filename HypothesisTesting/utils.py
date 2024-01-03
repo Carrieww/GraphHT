@@ -255,6 +255,24 @@ def HypothesisTesting(args, result_list, verbose=1):
             loc=np.mean(result_list),
             scale=stats.sem(result_list),
         )
+
+        if "CI" in args:
+            if np.isnan(CI_lower):
+                pass
+            else:
+                args.CI["lower"].append(CI_lower)
+
+            if np.isnan(CI_upper):
+                pass
+            else:
+                args.CI["upper"].append(CI_upper)
+
+        if "p_value" in args:
+            if np.isnan(p_value):
+                pass
+            else:
+                args.p_value.append(p_value)
+
         if verbose == 1:
             args.logger.info(f"\tH0: {args.H0}.")
             args.logger.info(

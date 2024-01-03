@@ -66,6 +66,8 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
 
     sampler_class = sampler_mapping[sampler_type]
 
+    args.CI = {"lower": [], "upper": []}
+    args.p_value = []
     for num_sample in range(args.num_samples):
         time_one_sample_start = time.time()
         seed = int(args.seed) * num_sample
@@ -115,10 +117,41 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
             num_sample,
         )
         overall_time_spent = round(time.time() - args.overall_time, 2)
-        if overall_time_spent > 7200:
-            raise Exception(
-                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 7200. So we terminate it."
+        if overall_time_spent > 10800:
+            args.logger.error(
+                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 10800. So we terminate it."
             )
+            raise Exception(
+                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 10800. So we terminate it."
+            )
+
+    if len(args.CI["lower"]) > 0:
+        # print(args.CI["lower"])
+        # print(round(sum(args.CI["lower"]) / len(args.CI["lower"]), 2))
+        args.time_result[args.ratio].append(
+            round(sum(args.CI["lower"]) / len(args.CI["lower"]), 2)
+        )
+    else:
+        args.logger.info("no valid lower CI")
+        args.time_result[args.ratio].append(-1)
+
+    if len(args.CI["upper"]) > 0:
+        # print(args.CI["upper"])
+        # print(round(sum(args.CI["upper"]) / len(args.CI["upper"]), 2))
+        args.time_result[args.ratio].append(
+            round(sum(args.CI["upper"]) / len(args.CI["upper"]), 2)
+        )
+    else:
+        args.logger.info("no valid upper CI")
+        args.time_result[args.ratio].append(-1)
+
+    if len(args.p_value) > 0:
+        args.time_result[args.ratio].append(
+            round(sum(args.p_value) / len(args.p_value), 2)
+        )
+    else:
+        args.logger.info("no valid p-value")
+        args.time_result[args.ratio].append(-1)
 
     return result_list, time_used_list
 
@@ -314,7 +347,7 @@ class newSampler(Sampler):
             if graph.nodes[node]["label"] == condition["type"]:
                 score += 1
                 for attr, v in condition["attribute"].items():
-                    if graph.nodes[node][attr] != v:
+                    if attr in graph.nodes[node] and graph.nodes[node][attr] != v:
                         score = 0.1
                         flag = False
                         break

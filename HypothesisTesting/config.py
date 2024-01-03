@@ -30,7 +30,18 @@ def parse_args():
     parser.add_argument(
         "--sampling_percent",
         type=list,
-        default=[0.1, 1],  # \t1000\t1500\t2000\t2500\t3000\t5000
+        default=[
+            0.1,
+            0.2,
+            0.3,
+            0.4,
+            0.5,
+            1,
+            2.5,
+            5,
+            7.5,
+            10,
+        ],  # \t1000\t1500\t2000\t2500\t3000\t5000
         help="Tab-separated list of sampling values.",
     )
     # sample size parameter
@@ -43,7 +54,7 @@ def parse_args():
     parser.add_argument(
         "--num_samples",
         type=int,
-        default=5,
+        default=30,
         help="number of samples to draw from the original graph.",
     )
 
@@ -52,7 +63,7 @@ def parse_args():
     parser.add_argument(
         "--H0",
         type=str,
-        default="The avg rating difference on path [business in PA - user - business in LA]",
+        default="avg number of reviews of business in LA is greater than 70",
         help="The null hypothesis.",
     )
     parser.add_argument(
@@ -65,12 +76,12 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "3-1-1": {
-                "edge": "stars",
+            "2-1-1": {
+                "dimension": {"business": "review_count"},
+                "business": {"state": "LA"},
                 "path": [
-                    {"type": "business", "attribute": {"state": "ID"}},
                     {"type": "user", "attribute": {}},
-                    {"type": "business", "attribute": {"state": "IL"}},
+                    {"type": "business", "attribute": {"state": "LA"}},
                 ],
             }
         },
@@ -85,7 +96,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=3,
+        default=2,
         help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
     )
     parser.add_argument(
@@ -98,7 +109,7 @@ def parse_args():
     parser.add_argument(
         "--c",
         type=float,
-        default=4,
+        default=70,
         help="a constant value in the hypothesis",
     )
 

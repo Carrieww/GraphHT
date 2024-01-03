@@ -5,7 +5,7 @@ from collections import defaultdict
 import networkx as nx
 from scipy import stats
 
-from utils import print_hypo_log, HypothesisTesting
+from utils import HypothesisTesting
 
 
 def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
@@ -282,9 +282,11 @@ def getPaths(args, new_graph):
                         e = (r[index], r[index + 1])
                         if extract_edge_attr in new_graph.edges[e].keys():
                             res.append(new_graph.edges[e][extract_edge_attr])
+
                     # average
                     # total_result[condition_name].append(sum(res) / len(res))
                     # difference
+
                     total_result[condition_name].append(abs(res[0] - res[1]))
             elif (
                 "node" in condition_dict.keys()

@@ -39,7 +39,7 @@ def main():
 def run_sampling_and_hypothesis_testing(args, graph):
     # sample for each sampling ratio
     args.overall_time = time.time()
-    args.result = defaultdict(list)
+    # args.result = defaultdict(list)
     args.coverage = defaultdict(list)
     if args.sampling_ratio == "auto":
         args.sampling_ratio = [
@@ -137,7 +137,7 @@ def get_results(args, result_list, ratio):
         )
 
         args.time_result[args.ratio].append(round(accuracy, 2))
-        args.result[ratio] = result_list
+        # args.result[ratio] = result_list
         # HypothesisTesting(args, result_list)
         args.logger.info(
             f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
@@ -195,10 +195,13 @@ def print_results(args):
         "Accuracy",
         "node num",
         "Valid nodes/edges/paths",
+        "Confidence Interval Lower",
+        "Confidence Interval Upper",
+        "p-value",
     ]
 
     # Print headers
-    header_format = " | ".join([header.capitalize().ljust(25) for header in headers])
+    header_format = " | ".join([header.title().ljust(25) for header in headers])
     print(header_format)
     args.logger.info(header_format)
 
@@ -206,10 +209,13 @@ def print_results(args):
     txt_filepath = "_".join(args.log_filepath.split("_")[:-1]) + ".txt"
     with open(txt_filepath, "w") as file:
         file.write(
-            "Sampling Time\tTarget Extraction Time\tTotal Time\tAccuracy\tSampling Ratio\tValid Nodes Edges Paths\n"
+            "Sampling Time\tTarget Extraction Time\tTotal Time\tAccuracy\tSampling Ratio\tValid Nodes Edges Paths\tLower CI\tUpper CI\tp-value\n"
         )
     for index, (ratio, value) in enumerate(args.time_result.items()):
         (
+            CI_lower,
+            CI_upper,
+            p_value,
             sampling_time,
             target_extraction_time,
             valid_nodes_edges_paths,
@@ -226,6 +232,9 @@ def print_results(args):
             + f"{accuracy:.2f}".ljust(25)
             + f"{args.sampling_ratio[index]}".ljust(25)
             + f"{valid_nodes_edges_paths:.2f}".ljust(25)
+            + f"{CI_lower:.2f}".ljust(25)
+            + f"{CI_upper:.2f}".ljust(25)
+            + f"{p_value:.2f}".ljust(25)
         )
         print(result_format)
         args.logger.info(result_format)
@@ -234,7 +243,7 @@ def print_results(args):
         with open(txt_filepath, "a") as file:
             # Write the headers if needed
             file.write(
-                f"{sampling_time:.2f}\t{target_extraction_time:.2f}\t{total_time:.2f}\t{accuracy:.2f}\t{args.sampling_ratio[index]}\t{valid_nodes_edges_paths:.2f}\n"
+                f"{sampling_time:.2f}\t{target_extraction_time:.2f}\t{total_time:.2f}\t{accuracy:.2f}\t{args.sampling_ratio[index]}\t{valid_nodes_edges_paths:.2f}\t{CI_lower:.2f}\t{CI_upper:.2f}\t{p_value:.2f}\n"
             )
 
     if args.hypo == 3:
@@ -250,7 +259,7 @@ def print_results(args):
 
         # Print hypothesis headers
         summary_statistics_header_format = " | ".join(
-            [header.capitalize().ljust(25) for header in summary_statistics_headers]
+            [header.title().ljust(25) for header in summary_statistics_headers]
         )
         print(summary_statistics_header_format)
         args.logger.info(summary_statistics_header_format)
