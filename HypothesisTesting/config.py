@@ -8,7 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="yelp", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
     parser.add_argument(
         "--file_num",
         type=int,
@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument(
         "--H0",
         type=str,
-        default="avg number of reviews of business in LA is greater than 70",
+        default="The avg citation of conference papers by authors in microsoft research is greater than 50",
         help="The null hypothesis.",
     )
     parser.add_argument(
@@ -76,12 +76,15 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "2-1-1": {
-                "dimension": {"business": "review_count"},
-                "business": {"state": "LA"},
+            "3-1-1": {
+                "node": {"index": "paper", "attribute": "n_citation"},
                 "path": [
-                    {"type": "user", "attribute": {}},
-                    {"type": "business", "attribute": {"state": "LA"}},
+                    {
+                        "type": "author",
+                        "attribute": {"author_org": "Microsoft Research"},
+                    },
+                    {"type": "paper", "attribute": {}},
+                    {"type": "venue", "attribute": {"venue_type": "C"}},
                 ],
             }
         },
@@ -96,7 +99,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=2,
+        default=3,
         help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
     )
     parser.add_argument(
@@ -109,7 +112,7 @@ def parse_args():
     parser.add_argument(
         "--c",
         type=float,
-        default=70,
+        default=50,
         help="a constant value in the hypothesis",
     )
 

@@ -1,3 +1,4 @@
+import pandas as pd
 import statistics
 import time
 from collections import defaultdict
@@ -221,7 +222,12 @@ def find_paths(
             # Check conditions for the current node
             flag = True
             for k, v in current_conditions.items():
-                if graph.nodes[neighbor][k] != v:
+                if pd.isna(pd.isna(graph.nodes[neighbor][k])):
+                    flag = False
+                    break
+                elif graph.nodes[neighbor][k] != v and (
+                    v not in graph.nodes[neighbor][k] if isinstance(v, str) else True
+                ):
                     flag = False
                     break
 
@@ -253,7 +259,14 @@ def getPaths(args, new_graph):
                 if new_graph.nodes[ini_node]["label"] == path_info[0]["type"]:
                     flag = True
                     for k, v in path_info[0]["attribute"].items():
-                        if new_graph.nodes[ini_node][k] != v:
+                        if pd.isna(new_graph.nodes[ini_node][k]):
+                            flag = False
+                            break
+                        elif new_graph.nodes[ini_node][k] != v and (
+                            v not in new_graph.nodes[ini_node][k]
+                            if isinstance(v, str)
+                            else True
+                        ):
                             flag = False
                             break
                     if flag:

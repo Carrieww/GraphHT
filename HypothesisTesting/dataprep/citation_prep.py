@@ -9,7 +9,7 @@ from config import ROOT_DIR
 
 
 def citation_prep(args):
-    # args.dataset = "DBLP-v5"
+    # args.dataset = "DBLP-v12"
     if not os.path.isfile(
         os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle")
     ):
@@ -25,6 +25,7 @@ def citation_prep(args):
         paper_list = getNodeList(df_papers)
         graph.add_nodes_from(paper_list)
         paper_list = []
+        # print(len(paper_list))
 
         df_authors = pd.read_csv(
             os.path.join(ROOT_DIR, "../datasets", args.dataset, "authors.csv")
@@ -32,6 +33,7 @@ def citation_prep(args):
         author_list = getNodeList(df_authors)
         graph.add_nodes_from(author_list)
         author_list = []
+        # print(len(author_list))
 
         df_fos = pd.read_csv(
             os.path.join(ROOT_DIR, "../datasets", args.dataset, "fos.csv")
@@ -48,6 +50,7 @@ def citation_prep(args):
         venue_list = []
 
         print("preparing relationships")
+        print(graph.number_of_nodes())
         print("preparing paper paper")
 
         df_paper_paper = pd.read_csv(
@@ -89,13 +92,16 @@ def citation_prep(args):
         )
 
         # save the graph
-        pickle.dump(
-            graph,
-            open(
-                os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle"),
-                "wb",
-            ),
-        )
+        if graph.number_of_nodes() == 1623013:
+            pickle.dump(
+                graph,
+                open(
+                    os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle"),
+                    "wb",
+                ),
+            )
+        else:
+            print(f"the nodes is {graph.number_of_nodes()}")
     else:
         print("loading dataset.")
         graph = pickle.load(
@@ -142,26 +148,40 @@ def getNodeList(df):
 
 
 def getRelationList(from_node_name, to_node_name, df, graph):
-    print(from_node_name)
-    print(to_node_name)
     edge_list = []
     count = 0
     for _, row in df.iterrows():
+        break_row = False
         count += 1
         edge_attribute = {}
         for k, v in row.items():
             if k == from_node_name:
                 from_node = v
-                if from_node in graph.nodes():
+                if from_node not in graph.nodes():
                     # print(f"{from_node} is not in g")
-                    continue
+                    break_row = True
+                    break
             elif k == to_node_name:
                 to_node = v
-                if to_node in graph.nodes():
+                if to_node not in graph.nodes():
                     # print(f"{to_node} is not in g")
-                    continue
+                    break_row = True
+                    break
             else:
                 edge_attribute[k] = v
+
+        if break_row == True:
+            break
+
+        if from_node_name == "id" and to_node_name == "references":
+            edge_attribute["label"] = "cite"
+        elif from_node_name == "id" and to_node_name == "author_id":
+            edge_attribute["label"] = "write_by"
+        elif from_node_name == "id" and to_node_name == "venue_id":
+            edge_attribute["label"] = "pulish_in"
+        elif from_node_name == "id" and to_node_name == "fos_id":
+            edge_attribute["label"] = "belong_to"
+
         if count % 100000 == 0:
             print(count)
         edge_list.append((from_node, to_node, edge_attribute))
