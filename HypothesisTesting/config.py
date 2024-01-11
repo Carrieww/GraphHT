@@ -8,7 +8,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
     parser.add_argument(
         "--file_num",
         type=int,
@@ -41,7 +41,7 @@ def parse_args():
             5,
             7.5,
             10,
-        ],  # \t1000\t1500\t2000\t2500\t3000\t5000
+        ],
         help="Tab-separated list of sampling values.",
     )
     # sample size parameter
@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument(
         "--H0",
         type=str,
-        default="The avg citation of conference papers by authors in microsoft research is greater than 50",
+        default="The avg age of unemployed female users is greater than 20",
         help="The null hypothesis.",
     )
     parser.add_argument(
@@ -76,15 +76,14 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "3-1-1": {
-                "node": {"index": "paper", "attribute": "n_citation"},
+            "2-1-1": {
+                "dimension": {"user": "age"},
+                "user": {"gender": "F", "occupation": "unemployed"},
                 "path": [
                     {
-                        "type": "author",
-                        "attribute": {"author_org": "Microsoft Research"},
-                    },
-                    {"type": "paper", "attribute": {}},
-                    {"type": "venue", "attribute": {"venue_type": "C"}},
+                        "type": "user",
+                        "attribute": {"gender": "F", "occupation": "unemployed"},
+                    }
                 ],
             }
         },
@@ -99,7 +98,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=3,
+        default=2,
         help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
     )
     parser.add_argument(
@@ -112,7 +111,7 @@ def parse_args():
     parser.add_argument(
         "--c",
         type=float,
-        default=50,
+        default=20,
         help="a constant value in the hypothesis",
     )
 
