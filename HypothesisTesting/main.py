@@ -128,7 +128,7 @@ def get_results(args, result_list, ratio):
         result = [i[str(list(args.attribute.keys())[0])] for i in result_list]
 
         # compute accuracy
-        accuracy = compute_accuracy(args.ground_truth, result)
+        accuracy = compute_accuracy(args, args.ground_truth, result)
         print(
             f">>> Accuracy of sampling result is {round(accuracy,4)} at {args.ratio} sampling ratio."
         )

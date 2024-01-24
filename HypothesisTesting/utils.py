@@ -273,28 +273,28 @@ def HypothesisTesting(args, result_list, verbose=1):
             else:
                 args.p_value.append(p_value)
 
-        if verbose == 1:
-            args.logger.info(f"\tH0: {args.H0}.")
+        args.logger.info(f"\tH0: {args.H0}.")
+        args.logger.info(
+            f"\tT-statistic value: {t_stat:.4f}, P-value: {p_value:.4f}, CI: ({CI_lower:.4f}, {CI_upper:.4f})."
+        )
+        if p_value < 0.05:
+            hypo_result = False
             args.logger.info(
-                f"\tT-statistic value: {t_stat:.4f}, P-value: {p_value:.4f}, CI: ({CI_lower:.4f}, {CI_upper:.4f})."
+                f"The test is significant, we shall reject the null hypothesis."
             )
-            if p_value < 0.05:
-                hypo_result = False
-                args.logger.info(
-                    f"The test is significant, we shall reject the null hypothesis."
-                )
-            else:
-                hypo_result = True
-                args.logger.info(
-                    f"The test is NOT significant, we shall accept the null hypothesis."
-                )
+        elif p_value >= 0.05:
+            hypo_result = True
+            args.logger.info(
+                f"The test is NOT significant, we shall accept the null hypothesis."
+            )
+        # p-value is nan
+        else:
+            hypo_result = None
+            args.logger.info(f"The test does not return valid results.")
     return hypo_result
 
 
-def compute_accuracy(ground_truth, result_list):
-    if None in result_list:
-        result_list.remove(None)
-
+def compute_accuracy(args, ground_truth, result_list):
     if len(result_list) == 0:
         return 0
     else:

@@ -1,7 +1,7 @@
 import os
 import pickle
 import re
-
+import math
 import networkx as nx
 import numpy as np
 import pandas as pd
@@ -113,22 +113,6 @@ def citation_prep(args):
     return graph
 
 
-# def addAttribute(graph):
-#     import random
-
-#     for i in graph.nodes():
-#         if graph.nodes[i]["label"] == "author":
-#             deg = graph.degree[i]
-#             if deg > 3:
-#                 deg_type = "high"
-#             elif 1 < deg <= 3:
-#                 deg_type = "medium"
-#             else:
-#                 deg_type = "low"
-#             graph.nodes[i]["prolificacy"] = deg_type
-#             graph.nodes[i]["pub_paper_num"] = deg  # + random.randint(1, 10)
-
-
 def getNodeList(df):
     node_list = []
     for _, row in df.iterrows():
@@ -137,6 +121,15 @@ def getNodeList(df):
             if k == "id":
                 node_name = v
                 node_attribute["label"] = "paper"
+            if k == "author_org":
+                # print("=============")
+                # print(v)
+                if pd.isna(v):
+                    node_attribute[k] = ""
+                else:
+                    attr = re.sub(r"#N#|#TAB#", "", v)
+                    # print(attr)
+                    node_attribute[k] = attr
             elif k[-3:] == "_id":
                 node_name = v
                 node_attribute["label"] = k[:-3]
@@ -170,15 +163,15 @@ def getRelationList(from_node_name, to_node_name, df, graph):
             else:
                 edge_attribute[k] = v
 
-        if break_row == True:
-            break
+            if break_row == True:
+                break
 
         if from_node_name == "id" and to_node_name == "references":
             edge_attribute["label"] = "cite"
         elif from_node_name == "id" and to_node_name == "author_id":
             edge_attribute["label"] = "write_by"
         elif from_node_name == "id" and to_node_name == "venue_id":
-            edge_attribute["label"] = "pulish_in"
+            edge_attribute["label"] = "publish_in"
         elif from_node_name == "id" and to_node_name == "fos_id":
             edge_attribute["label"] = "belong_to"
 

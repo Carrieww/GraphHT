@@ -1,3 +1,4 @@
+# citation 3-1-1
 import argparse
 from pathlib import Path
 
@@ -8,11 +9,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
     parser.add_argument("--seed", type=str, default="2022", help="random seed.")
-    parser.add_argument("--dataset", type=str, default="movielens", help="dataset.")
+    parser.add_argument("--dataset", type=str, default="citation", help="dataset.")
     parser.add_argument(
         "--file_num",
-        type=int,
-        default=30,
+        type=str,
+        default="microsoftC",
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
@@ -31,17 +32,16 @@ def parse_args():
         "--sampling_percent",
         type=list,
         default=[
+            0.02,
+            0.04,
+            0.06,
+            0.08,
             0.1,
             0.2,
             0.3,
             0.4,
             0.5,
-            1,
-            2.5,
-            5,
-            7.5,
-            10,
-        ],
+        ],  # \t1000\t1500\t2000\t2500\t3000\t5000
         help="Tab-separated list of sampling values.",
     )
     # sample size parameter
@@ -63,7 +63,7 @@ def parse_args():
     parser.add_argument(
         "--H0",
         type=str,
-        default="The avg age of unemployed female users is greater than 20",
+        default="The avg citation of conference papers by authors in microsoft research is greater than 50",
         help="The null hypothesis.",
     )
     parser.add_argument(
@@ -76,14 +76,15 @@ def parse_args():
         "--attribute",
         type=dict,
         default={
-            "2-1-1": {
-                "dimension": {"user": "age"},
-                "user": {"gender": "F", "occupation": "unemployed"},
+            "3-1-1": {
+                "node": {"index": "paper", "attribute": "n_citation"},
                 "path": [
                     {
-                        "type": "user",
-                        "attribute": {"gender": "F", "occupation": "unemployed"},
-                    }
+                        "type": "author",
+                        "attribute": {"author_org": "Microsoft Research"},
+                    },
+                    {"type": "paper", "attribute": {}},
+                    {"type": "venue", "attribute": {"venue_type": "C"}},
                 ],
             }
         },
@@ -98,7 +99,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=2,
+        default=3,
         help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
     )
     parser.add_argument(
@@ -111,7 +112,7 @@ def parse_args():
     parser.add_argument(
         "--c",
         type=float,
-        default=20,
+        default=50,
         help="a constant value in the hypothesis",
     )
 

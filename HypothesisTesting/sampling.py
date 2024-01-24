@@ -117,12 +117,12 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
             num_sample,
         )
         overall_time_spent = round(time.time() - args.overall_time, 2)
-        if overall_time_spent > 10800:
+        if overall_time_spent > 18000:
             args.logger.error(
-                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 10800. So we terminate it."
+                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 18000 (5 hours). So we terminate it."
             )
             raise Exception(
-                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 10800. So we terminate it."
+                f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 18000 (5 hours). So we terminate it."
             )
 
     if len(args.CI["lower"]) > 0:

@@ -1,5 +1,8 @@
 # Byte-compiled / optimized / DLL files
+*.html
+Observations/*
 datasets/
+dblp-parser/
 HypothesisTesting_citation/
 __pycache__/
 shit.py
@@ -11,7 +14,10 @@ outputacm.txt
 citation.py
 .DS_Store
 HypothesisTesting/*.png
+lib/*
 HypothesisTesting/one_sample/*
+HypothesisTesting/FromServer/*
+HypothesisTesting/FromServer_Jan17/*
 HypothesisTesting/two_sample/*
 StatisticsAnalysis/*
 
@@ -33,7 +39,7 @@ StatisticsAnalysis/*
 
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
+trash.ipynb
 
 
 # PEP 582; used by e.g. github.com/David-OConnor/pyflow and github.com/pdm-project/pdm

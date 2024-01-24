@@ -46,6 +46,9 @@ def new_graph_hypo_result(args, new_graph, result_list, time_used_list):
 
     for attribute, v in total_result.items():
         args.valid_edges.append(len(v))
+        if len(v) <= 20:
+            args.logger.info(v)
+        args.logger.info(f"The sampled graph has {len(v)} relevant patterns.")
         if len(attribute.split("+")) == 1:
             if args.agg == "mean":
                 if len(v) != 0:
