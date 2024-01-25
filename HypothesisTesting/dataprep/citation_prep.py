@@ -92,16 +92,15 @@ def citation_prep(args):
         )
 
         # save the graph
-        if graph.number_of_nodes() == 1623013:
-            pickle.dump(
-                graph,
-                open(
-                    os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle"),
-                    "wb",
-                ),
-            )
-        else:
-            print(f"the nodes is {graph.number_of_nodes()}")
+        print(graph.number_of_nodes())
+        print(graph.number_of_edges())
+        pickle.dump(
+            graph,
+            open(
+                os.path.join(ROOT_DIR, "../datasets", args.dataset, "graph.pickle"),
+                "wb",
+            ),
+        )
     else:
         print("loading dataset.")
         graph = pickle.load(
@@ -144,7 +143,7 @@ def getRelationList(from_node_name, to_node_name, df, graph):
     edge_list = []
     count = 0
     for _, row in df.iterrows():
-        break_row = False
+        continue_row = False
         count += 1
         edge_attribute = {}
         for k, v in row.items():
@@ -152,19 +151,19 @@ def getRelationList(from_node_name, to_node_name, df, graph):
                 from_node = v
                 if from_node not in graph.nodes():
                     # print(f"{from_node} is not in g")
-                    break_row = True
+                    continue_row = True
                     break
             elif k == to_node_name:
                 to_node = v
                 if to_node not in graph.nodes():
                     # print(f"{to_node} is not in g")
-                    break_row = True
+                    continue_row = True
                     break
             else:
                 edge_attribute[k] = v
 
-            if break_row == True:
-                break
+        if continue_row == True:
+            continue
 
         if from_node_name == "id" and to_node_name == "references":
             edge_attribute["label"] = "cite"
