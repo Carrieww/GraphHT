@@ -32,11 +32,12 @@ class newSampler(Sampler):
         self.node_count = 0
         self.no_repeat = no_repeat
         self.memory_map = {}
-        self.w1 = 1
+        self.w1 = 10
         self.w2 = 0.1
 
     def assign_node_weight(self, graph, node):
         target_node_condition = self.path[0]
+        # print(graph.nodes[node])
         if graph.nodes[node]["label"] == target_node_condition["type"]:
             flag = self.check_condition(graph, target_node_condition, node)
             if flag:

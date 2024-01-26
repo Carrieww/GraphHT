@@ -224,6 +224,7 @@ def find_paths(
         if neighbor_label == current_label:
             # Check conditions for the current node
             flag = True
+            # for citation 3-1-1 vague match
             for k, v in current_conditions.items():
                 if pd.isna(pd.isna(graph.nodes[neighbor][k])):
                     flag = False
@@ -233,6 +234,14 @@ def find_paths(
                 ):
                     flag = False
                     break
+
+            # for k, v in current_conditions.items():
+            #     if pd.isna(pd.isna(graph.nodes[neighbor][k])):
+            #         flag = False
+            #         break
+            #     elif graph.nodes[neighbor][k] != v:
+            #         flag = False
+            #         break
 
             if flag:
                 # Recursively explore the next depth
@@ -262,6 +271,7 @@ def getPaths(args, new_graph):
                 if new_graph.nodes[ini_node]["label"] == path_info[0]["type"]:
                     flag = True
                     for k, v in path_info[0]["attribute"].items():
+                        # for citation 3-1-1 vague match
                         if pd.isna(new_graph.nodes[ini_node][k]):
                             flag = False
                             break
@@ -272,6 +282,13 @@ def getPaths(args, new_graph):
                         ):
                             flag = False
                             break
+
+                        # if pd.isna(new_graph.nodes[ini_node][k]):
+                        #     flag = False
+                        #     break
+                        # elif new_graph.nodes[ini_node][k] != v:
+                        #     flag = False
+                        #     break
                     if flag:
                         find_paths(
                             args,
@@ -301,9 +318,12 @@ def getPaths(args, new_graph):
 
                     # average
                     # total_result[condition_name].append(sum(res) / len(res))
-                    # difference
 
-                    total_result[condition_name].append(abs(res[0] - res[1]))
+                    # difference
+                    # total_result[condition_name].append(abs(res[0] - res[1]))
+
+                    # only one valid edge on the path
+                    total_result[condition_name].append(res[0])
             elif (
                 "node" in condition_dict.keys()
             ):  # node in dict, "node": {"index":2,"attribute":"age"}
