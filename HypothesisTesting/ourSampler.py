@@ -32,7 +32,7 @@ class newSampler(Sampler):
         self.node_count = 0
         self.no_repeat = no_repeat
         self.memory_map = {}
-        self.w1 = 10
+        self.w1 = 1
         self.w2 = 0.1
 
     def assign_node_weight(self, graph, node):
