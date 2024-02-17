@@ -1,8 +1,6 @@
 import logging
 import os
 import random
-
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from scipy import stats
@@ -27,7 +25,9 @@ def clean():
 
 
 def logger(args):
-    # Create and configure logger
+    """
+    Create and configure logger
+    """
     if len(args.attribute) == 1:
         args.log_folderPath = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
@@ -40,39 +40,7 @@ def logger(args):
             "two_sample",
             "log_and_results_" + str(args.dataset),
         )
-    if args.sampling_method == "SpikyBallS":
-        if args.sampling_mode is None:
-            args.logger.error(
-                "The sampling_mode must be provided for sampling_method SpikyBallS."
-            )
-            raise Exception(
-                "The sampling_mode must be provided for sampling_method SpikyBallS."
-            )
-        else:
-            if len(args.attribute) == 1:
-                string = str(list(args.attribute.keys())[0])
-            else:
-                string = str(list(args.attribute.keys())[0]) + str(
-                    list(args.attribute.keys())[1]
-                )
-            args.log_filepath = os.path.join(
-                args.log_folderPath,
-                args.dataset
-                + "_hypo"
-                + str(args.hypo)
-                + "_"
-                + string
-                + "_"
-                + args.sampling_method
-                + "_"
-                + args.sampling_mode
-                + "_"
-                + args.agg
-                + "_"
-                + str(args.file_num)
-                + "_log.log",
-            )
-    else:
+    if args.sampling_method != "SpikyBallS":
         if len(args.attribute) == 1:
             string = str(list(args.attribute.keys())[0])
         elif len(args.attribute) == 2:
@@ -119,67 +87,6 @@ def log_global_info(args):
     args.logger.info(f"Attribute: {args.attribute}")
     args.logger.info(f"Aggregation Method: {args.agg}")
     args.logger.info(f"=========== Start Running ===========")
-
-
-def drawAllRatings(args, rating_summary):
-    x = np.arange(0, args.num_samples, 1)
-    plt.plot(x, [args.ground_truth] * args.num_samples, label=f"true {args.agg} rating")
-    index = 1
-    for ratio, rating in rating_summary.items():
-        CI = list(args.CI[index - 1])
-        plt.plot(x, rating, label=f"{args.agg} rating ({ratio})")
-        if np.isnan(CI[0]) or np.isnan(CI[1]):
-            pass
-        else:
-            plt.fill_between(x, CI[0], CI[1], alpha=index / 10)
-        index += 1
-    plt.xlabel("i-th sampled subgraph")
-    plt.ylabel("average rating")
-    plt.legend()
-    plt.title(f"average rating ({args.dataset}) - {args.sampling_method}")
-    if args.sampling_method == "SpikyBallS":
-        if len(args.attribute) == 1:
-            string = str(args.attribute[0][:4])
-        else:
-            string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
-        args.fig_path = os.path.join(
-            args.log_folderPath,
-            args.dataset
-            + "_hypo"
-            + str(args.hypo)
-            + "_"
-            + string
-            + "_"
-            + args.sampling_method
-            + "_"
-            + args.sampling_mode
-            + "_"
-            + args.agg
-            + "_"
-            + str(args.file_num)
-            + "_allResult.png",
-        )
-    else:
-        if len(args.attribute) == 1:
-            string = str(args.attribute[0][:4])
-        else:
-            string = str(args.attribute[0][:4]) + str(args.attribute[1][:4])
-        args.fig_path = os.path.join(
-            args.log_folderPath,
-            args.dataset
-            + "_hypo"
-            + str(args.hypo)
-            + "_"
-            + string
-            + "_"
-            + args.sampling_method
-            + "_"
-            + args.agg
-            + "_"
-            + str(args.file_num)
-            + "_allResult.png",
-        )
-    plt.savefig(args.fig_path)
 
 
 def print_hypo_log(args, t_stat, p_value, H0, **kwargs):
@@ -294,7 +201,7 @@ def HypothesisTesting(args, result_list, verbose=1):
     return hypo_result
 
 
-def compute_accuracy(args, ground_truth, result_list):
+def compute_accuracy(ground_truth, result_list):
     if len(result_list) == 0:
         return 0
     else:

@@ -13,7 +13,7 @@ def parse_args():
     parser.add_argument(
         "--file_num",
         type=str,
-        default="microsoftC",
+        default="APPA_MS",
         help="to name log and result files for multi runs.",
     )
     parser.add_argument(
@@ -32,15 +32,16 @@ def parse_args():
         "--sampling_percent",
         type=list,
         default=[
+            0.01,
             0.02,
+            0.03,
             0.04,
             0.06,
-            0.08,
-            0.1,
-            0.2,
-            0.3,
-            0.4,
-            0.5,
+            0.12,
+            0.24,
+            0.38,
+            0.45,
+            0.6,
         ],  # \t1000\t1500\t2000\t2500\t3000\t5000
         help="Tab-separated list of sampling values.",
     )
@@ -81,10 +82,14 @@ def parse_args():
                 "path": [
                     {
                         "type": "author",
-                        "attribute": {"author_org": "Microsoft Research"},
+                        "attribute": {"author_org": "Microsoft Research,"},
                     },
                     {"type": "paper", "attribute": {}},
-                    {"type": "venue", "attribute": {"venue_type": "C"}},
+                    {"type": "paper", "attribute": {}},
+                    {
+                        "type": "author",
+                        "attribute": {"author_org": "Microsoft Research,"},
+                    },
                 ],
             }
         },

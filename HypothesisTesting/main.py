@@ -4,7 +4,7 @@ from collections import defaultdict
 
 import networkx as nx
 from config import parse_args
-from new_graph_hypo_postprocess import getEdges, getNodes, getPaths
+from extraction import getEdges, getNodes, getPaths
 from sampling import sample_graph
 
 
@@ -26,27 +26,25 @@ def main():
     setup_seed(args)
     setup_device(args)
     logger(args)
-
     log_global_info(args)
 
     graph = prepare_dataset(args)
-
     run_sampling_and_hypothesis_testing(args, graph)
-
     print_results(args)
 
 
 def run_sampling_and_hypothesis_testing(args, graph):
     # sample for each sampling ratio
     args.overall_time = time.time()
-    # args.result = defaultdict(list)
     args.coverage = defaultdict(list)
+
     if args.sampling_ratio == "auto":
         args.sampling_ratio = [
             int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
         ]
         print(f"the list of sampling size is {args.sampling_ratio}")
         args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
+
     args.time_result = defaultdict(list)
     for ratio in args.sampling_ratio:
         # sampling setup and execution
@@ -60,6 +58,7 @@ def run_sampling_and_hypothesis_testing(args, graph):
         valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
         print(f"average valid nodes/edges are {valid_e_n}")
         args.logger.info(f"average valid nodes/edges are {valid_e_n}")
+
         if hasattr(args, "variance"):
             if len(args.variance) != 0:
                 print(f"average variance is {sum(args.variance)/len(args.variance)}")
@@ -78,10 +77,13 @@ def run_sampling_and_hypothesis_testing(args, graph):
         args.logger.info(
             f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
         )
-        get_results(args, result_list, ratio)
+        get_results(args, result_list)
 
 
-def get_results(args, result_list, ratio):
+def get_results(args, result_list):
+    """
+    Getting all results after sampling for printing.
+    """
     if args.HTtype == "one-sample":
         if args.hypo == 3:
             user_cov_list = [
@@ -128,7 +130,7 @@ def get_results(args, result_list, ratio):
         result = [i[str(list(args.attribute.keys())[0])] for i in result_list]
 
         # compute accuracy
-        accuracy = compute_accuracy(args, args.ground_truth, result)
+        accuracy = compute_accuracy(args.ground_truth, result)
         print(
             f">>> Accuracy of sampling result is {round(accuracy,4)} at {args.ratio} sampling ratio."
         )
@@ -137,47 +139,10 @@ def get_results(args, result_list, ratio):
         )
 
         args.time_result[args.ratio].append(round(accuracy, 2))
-        # args.result[ratio] = result_list
-        # HypothesisTesting(args, result_list)
+
         args.logger.info(
             f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
         )
-
-    elif args.HTtype == "two-sample":
-        result_list_new = defaultdict(list)
-        value = []
-
-        for attribute in args.attribute:
-            result_attribute = [i[attribute] for i in result_list]
-            result_list_new[attribute] = result_attribute
-            value.append(sum(result_attribute) / len(result_attribute))
-
-        percent_errors = [
-            100
-            * abs(value[i] - args.ground_truth[args.attribute[i]])
-            / args.ground_truth[args.attribute[i]]
-            for i in range(len(args.attribute))
-        ]
-        percent_error = sum(percent_errors) / len(percent_errors)
-
-        for i, attribute in enumerate(args.attribute):
-            print(f">>> {attribute}: sampled result is {value[i]}.")
-            args.logger.info(f">>> {attribute}: sampled result is {value[i]}.")
-            print(
-                f">>> Percentage error of {attribute} at {args.ratio} sampling ratio is {round(percent_errors[i], 2)}%."
-            )
-            args.logger.info(
-                f">>> Percentage error of {attribute} at {args.ratio} sampling ratio is {round(percent_errors[i], 2)}%."
-            )
-        args.time_result[args.ratio].append(round(percent_error, 2))
-
-        # args.result[ratio] = result_list
-        # TODO: hypothesis testing may not be compatible for two-samply hypothesis
-        HypothesisTesting(args, result_list_new)
-        args.logger.info(
-            f"The hypothesis testing for {args.ratio} sampling ratio is finished!"
-        )
-
     else:
         raise Exception(
             "Sorry we do not support hypothesis types other than one-sample and two-sample."
@@ -185,9 +150,9 @@ def get_results(args, result_list, ratio):
 
 
 def print_results(args):
-    # drawAllRatings(args, args.result)
-
-    # print the results
+    """
+    Printing the results in log and excel.
+    """
     headers = [
         "Sampling time",
         "Target extraction time",

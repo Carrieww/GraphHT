@@ -1,10 +1,8 @@
 import pandas as pd
-import statistics
 import time
 from collections import defaultdict
 
 import networkx as nx
-from scipy import stats
 
 from utils import HypothesisTesting
 
@@ -206,12 +204,10 @@ def find_paths(
         key = ".".join(str_current_path)
         str_current_path.reverse()
         reverse_key = ".".join(str_current_path)
-        # current_path.reverse()
         args.total_valid += 1
         if path_count_map.get(key) is None and path_count_map.get(reverse_key) is None:
             args.total_minus_reverse += 1
             if len(set(current_path)) == len(current_path):
-                # res.append(current_path)
                 path_count_map[key] = 1
         return
 
@@ -234,14 +230,6 @@ def find_paths(
                 ):
                     flag = False
                     break
-
-            # for k, v in current_conditions.items():
-            #     if pd.isna(pd.isna(graph.nodes[neighbor][k])):
-            #         flag = False
-            #         break
-            #     elif graph.nodes[neighbor][k] != v:
-            #         flag = False
-            #         break
 
             if flag:
                 # Recursively explore the next depth
@@ -282,13 +270,6 @@ def getPaths(args, new_graph):
                         ):
                             flag = False
                             break
-
-                        # if pd.isna(new_graph.nodes[ini_node][k]):
-                        #     flag = False
-                        #     break
-                        # elif new_graph.nodes[ini_node][k] != v:
-                        #     flag = False
-                        #     break
                     if flag:
                         find_paths(
                             args,
@@ -320,10 +301,10 @@ def getPaths(args, new_graph):
                     # total_result[condition_name].append(sum(res) / len(res))
 
                     # difference
-                    # total_result[condition_name].append(abs(res[0] - res[1]))
+                    total_result[condition_name].append(abs(res[0] - res[1]))
 
                     # only one valid edge on the path
-                    total_result[condition_name].append(res[0])
+                    # total_result[condition_name].append(res[0])
             elif (
                 "node" in condition_dict.keys()
             ):  # node in dict, "node": {"index":2,"attribute":"age"}
@@ -335,17 +316,17 @@ def getPaths(args, new_graph):
                     r = [int(i) for i in r]
                     user_set.update([r[1]])
                     movie_set.update([r[0], r[2]])
+                    res = []
                     for node in r:
                         if new_graph.nodes[node]["label"] == extract_node_index:
-                            total_result[condition_name].append(
-                                new_graph.nodes[node][extract_node_attr]
-                            )
+                            res.append(new_graph.nodes[node][extract_node_attr])
+
+                    total_result[condition_name].append(sum(res) / len(res))
+
             else:
                 raise Exception("You must provide the dimension in the attribute.")
             total_result[condition_name + "+user_coverage"].append(len(user_set))
             total_result[condition_name + "+movie_coverage"].append(len(movie_set))
-            # print(args.total_valid)
-            # print(args.total_minus_reverse)
 
     else:
         raise Exception("Sorry we only support one condition_name")
