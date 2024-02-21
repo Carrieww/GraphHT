@@ -5,9 +5,10 @@ __pycache__/
 .vscode/
 .venv/
 .ipynb_checkpoints/
-
+*.sh
 .DS_Store
 .cache
 *.log
 __pypackages__/
 .idea/
+result/

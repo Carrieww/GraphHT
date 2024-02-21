@@ -31,39 +31,39 @@ def logger(args):
     if len(args.attribute) == 1:
         args.log_folderPath = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
-            "one_sample",
-            "log_and_results_" + str(list(args.attribute.keys())[0]),
+            "result",
+            "one_sample_log_and_results_" + str(list(args.attribute.keys())[0]),
         )
     else:
         args.log_folderPath = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
-            "two_sample",
-            "log_and_results_" + str(args.dataset),
+            "result",
+            "two_sample_log_and_results_" + str(args.dataset),
         )
-    if args.sampling_method != "SpikyBallS":
-        if len(args.attribute) == 1:
-            string = str(list(args.attribute.keys())[0])
-        elif len(args.attribute) == 2:
-            string = str(list(args.attribute.keys())[0]) + str(
-                list(args.attribute.keys())[1]
-            )
-        else:
-            raise Exception(f"Sorry we dont support more than 2 comparisons.")
-        args.log_filepath = os.path.join(
-            args.log_folderPath,
-            args.dataset
-            + "_hypo"
-            + str(args.hypo)
-            + "_"
-            + string
-            + "_"
-            + args.sampling_method
-            + "_"
-            + args.agg
-            + "_"
-            + str(args.file_num)
-            + "_log.log",
+
+    if len(args.attribute) == 1:
+        string = str(list(args.attribute.keys())[0])
+    elif len(args.attribute) == 2:
+        string = str(list(args.attribute.keys())[0]) + str(
+            list(args.attribute.keys())[1]
         )
+    else:
+        raise Exception(f"Sorry we dont support more than 2 comparisons.")
+    args.log_filepath = os.path.join(
+        args.log_folderPath,
+        args.dataset
+        + "_hypo"
+        + str(args.hypo)
+        + "_"
+        + string
+        + "_"
+        + args.sampling_method
+        + "_"
+        + args.agg
+        + "_"
+        + str(args.file_num)
+        + "_log.log",
+    )
 
     if not os.path.exists(args.log_folderPath):
         os.makedirs(args.log_folderPath)

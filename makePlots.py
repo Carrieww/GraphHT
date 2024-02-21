@@ -1,26 +1,27 @@
 import matplotlib.pyplot as plt
+import os
 
 dataset_name = "citation"
+hypo_type = "3"
+hypo_name = "Path"
+# Accuracy Time CI P-value
 y_label = "Accuracy"
 file_code = "APPA_MS"
 plot_code = file_code + ""
 # accuracy = 3; time = 0; p-value = 8
-# CI does not need to specify target column (But need to provide true_y);
+# For CI does not need to specify target column (But need to provide true_y);
 target_column = 3
 true_y = 0.45
-hypo_type = "3"
-hypo_name = "Path"
+
 nonexist_sm = []
+unwanted_row = [9, 10, 11, 12]
+x = [0.1, 0.2, 0.3, 0.4, 0.5, 1, 2.5, 5]
+x_ticks = [1, 2, 3, 4, 5]
 
-unwanted_row = []
-# movielens
-# x_labels = [0.1, 0.2, 0.3, 0.4, 0.5, 1, 2.5, 5, 7.5, 10, 25]
-# DBLP and Yelp
-x_labels = [0.02, 0.04, 0.06, 0.08, 0.1, 0.2, 0.4, 0.6, 0.8, 1]
-
-x_ticks = [i * 10 for i in x_labels]
+current_directory = os.getcwd()
 file_name = (
-    "/Users/wangyun/Documents/GitHub/GraphHT/HypothesisTesting/FromServer/log_and_results_"
+    current_directory
+    + "/result/log_and_results_"
     + hypo_type
     + "-1-1/"
     + dataset_name
@@ -30,8 +31,10 @@ file_name = (
     + hypo_type
     + "-1-1_"
 )
+
 save_path = (
-    "/Users/wangyun/Documents/GitHub/GraphHT/HypothesisTesting/FromServer/log_and_results_"
+    current_directory
+    + "/result/log_and_results_"
     + hypo_type
     + "-1-1/"
     + dataset_name
@@ -47,20 +50,20 @@ title = y_label + " - " + file_code
 ###############################################
 ############## can change above ###############
 ###############################################
+
 sm = [
-    "SRW",
-    "NBRW",
-    "ShortestPathS",
-    "RW_Starter",
-    "ours",
+    "RES",
+    # "NBRW",
+    # "ShortestPathS",
+    # "RW_Starter",
+    # "ours",
 ]
 
 # Create a list of colors from the color map
-color_map = plt.get_cmap("viridis")  # Example: 'viridis', 'plasma', 'inferno', 'magma'
 num_colors = len(sm)
-colors = ["#1f77b4", "#006400", "#4B0082", "#8B4513", "#FF4500"]
+colors = ["#1f77b4", "#006400", "#4B0082", "#8B4513"]
+ours_color = "#FF4500"
 
-# colors = [color_map(i / num_colors) for i in range(num_colors)]
 linestyle = ["--", ":", "-.", "-"]
 markerstyle = ["o", "v", ">", "X", "D"]
 index = 0
@@ -90,18 +93,18 @@ if y_label in ["Accuracy", "Time"]:
         # Plotting the accuracy values
         if sampler == "ours":
             plt.plot(
-                x_ticks,
+                x,
                 accuracy_values,
                 marker="*",
                 linestyle="-",
                 label=sampler,
-                color="red",
+                color=ours_color,
                 linewidth=3,
                 markersize=(14),
             )
         else:
             plt.plot(
-                x_ticks,
+                x,
                 accuracy_values,
                 marker=markerstyle[index % 10],
                 linestyle=linestyle[index % 4],
@@ -119,7 +122,7 @@ elif y_label == "P-value":
             continue
         filename = file_name + str(sampler) + "_mean_" + file_code + ".txt"
         accuracy_values = []
-        x_ticks_ = x_ticks
+        x_ = x
 
         with open(filename, "r") as file:
             next(file)
@@ -134,23 +137,23 @@ elif y_label == "P-value":
                     if accuracy != -1:
                         accuracy_values.append(accuracy)
                     else:
-                        x_ticks_ = x_ticks_[1:]
+                        x_ = x_[1:]
 
         # Plotting the accuracy values
         if sampler == "ours":
             plt.plot(
-                x_ticks_,
+                x_,
                 accuracy_values,
                 marker="*",
                 linestyle="-",
                 label=sampler,
                 linewidth=3,
                 markersize=(14),
-                color="r",
+                color=ours_color,
             )
         else:
             plt.plot(
-                x_ticks_,
+                x_,
                 accuracy_values,
                 marker=markerstyle[index % 10],
                 linestyle=linestyle[index % 3],
@@ -168,7 +171,7 @@ elif y_label == "CI":
         filename = file_name + str(sampler) + "_mean_" + file_code + ".txt"
         lower_list = []
         upper_list = []
-        x_ticks_ = x_ticks
+        x_ = x
 
         with open(filename, "r") as file:
             next(file)  # Skip header
@@ -185,52 +188,46 @@ elif y_label == "CI":
                         lower_list.append(lower)
                         upper_list.append(upper)
                     else:
-                        x_ticks_ = x_ticks_[1:]
+                        x_ = x_[1:]
 
         # Plotting the CI values
         if sampler == "ours":
             plt.plot(
-                x_ticks_,
+                x_,
                 lower_list,
-                color="r",
+                color=ours_color,
                 linewidth=3,
                 linestyle="-",
             )
             plt.plot(
-                x_ticks_,
+                x_,
                 upper_list,
-                color="r",
+                color=ours_color,
                 linewidth=3,
                 linestyle="-",
             )
 
             # Filling the area between the bounds
             plt.fill_between(
-                x_ticks_, lower_list, upper_list, color="r", alpha=0.3, label=sampler
+                x_, lower_list, upper_list, color="r", alpha=0.3, label=sampler
             )
         else:
             plt.plot(
-                x_ticks_,
+                x_,
                 lower_list,
                 color=colors[index],
                 linewidth=3,
-                # linestyle=linestyle[index % 3],
-                # marker=(markerstyle[index % 10]),
-                # markersize=12,
             )
             plt.plot(
-                x_ticks_,
+                x_,
                 upper_list,
                 color=colors[index],
                 linewidth=3,
-                # linestyle=linestyle[index % 3],
-                # marker=(markerstyle[index % 10]),
-                # markersize=12,
             )
 
             # Filling the area between the bounds
             plt.fill_between(
-                x_ticks_,
+                x_,
                 lower_list,
                 upper_list,
                 color=colors[index],
@@ -244,13 +241,13 @@ elif y_label == "CI":
     )
 
 
-plt.xticks(x_ticks, x_labels)
+plt.xticks(x_ticks, x_ticks)
 plt.xlabel("Sampling Proportion (%)", fontsize=18, fontweight="bold")
 plt.ylabel(y_label, fontsize=18, fontweight="bold")
-plt.title(title, fontsize=20, fontweight="bold")
+# plt.title(title, fontsize=20, fontweight="bold")
 
 plt.yticks(fontsize=14)
-plt.xticks(rotation=45, fontsize=14)
+plt.xticks(fontsize=14)
 if y_label == "Time":
     plt.legend(loc="upper left", prop={"size": 18, "weight": "bold"})
 elif y_label == "Accuracy":
