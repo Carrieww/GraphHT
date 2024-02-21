@@ -382,7 +382,7 @@ def samplingGraph(args, graph):
         "RES",
         "RNES",
         "RES_Induction",
-        "ours",
+        "PHASE",
     ]
 
     # if the sampling method is supported, call the selected function and update result and time tracking

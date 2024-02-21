@@ -58,7 +58,7 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
         "RES": RandomEdgeSampler_new,
         "RNES": RandomNodeEdgeSampler_new,
         "RES_Induction": RandomEdgeSamplerWithInduction,
-        "ours": newSampler,
+        "PHASE": newSampler,
     }
 
     if sampler_type not in sampler_mapping:
@@ -82,21 +82,21 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
             model = sampler_class(number_of_nodes=args.ratio, seed=seed, p=0.01)
         elif sampler_type in ["RES", "RNES", "RES_Induction"]:
             model = sampler_class(number_of_edges=args.ratio, seed=seed)
-        elif sampler_type == "ours":
-            if args.hypo in [1, 3]:
-                no_repeat = "edge"
-            else:
-                no_repeat = "node"
+        elif sampler_type == "PHASE":
+            # if args.hypo in [1, 3]:
+            #     no_repeat = "edge"
+            # else:
+            #     no_repeat = "node"
             model = newSampler(
                 args.attribute[str(list(args.attribute.keys())[0])]["path"],
                 number_of_nodes=args.ratio,
-                no_repeat=no_repeat,
+                # no_repeat=no_repeat,
                 seed=seed,
             )
         else:
             model = sampler_class(number_of_nodes=args.ratio, seed=seed)
 
-        if sampler_type == "ours":
+        if sampler_type == "PHASE":
             new_graph = model.sample(graph, args)
         else:
             new_graph = model.sample(graph)

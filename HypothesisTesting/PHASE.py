@@ -137,15 +137,18 @@ class newSampler(Sampler):
 
     def _do_update(self, graph):
         # randomly pick one seed
-        num_neighbor = 30
+        # num_neighbor = 30
         sample = np.random.choice(
             self._seeds, 1, replace=False, p=self._norm_seed_weights
         )[0]
         self.index = self._seeds.index(sample)
 
         # remove visited nodes from neighbor nodes
-        not_visited_nodes = set(graph.neighbors(sample)) - self._nodes
-        neighbors = list(not_visited_nodes)
+        # not_visited_nodes = set(graph.neighbors(sample)) - self._nodes
+        # neighbors = list(not_visited_nodes)
+
+        neighbors = list(set(graph.neighbors(sample)))
+        num_neighbor = len(neighbors)
 
         # pick a neighboring node
         if len(neighbors) == 0:
