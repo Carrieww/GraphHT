@@ -7,9 +7,11 @@ from dataprep.movielens_prep import getNodeList, getRelationList
 
 
 def yelp_prep(args):
-    """A function for preparing the Yelp graph"""
+    """
+    A function for preparing the Yelp graph
+    """
     graph_pickle_path = os.path.join(
-        ROOT_DIR, "../datasets", "yelp_dataset", "graph.pickle"
+        ROOT_DIR, "../datasets", args.dataset, "graph.pickle"
     )
     # check if the graph is already prepared
     if not os.path.isfile(graph_pickle_path):
@@ -17,7 +19,7 @@ def yelp_prep(args):
         args.logger.info(f"preparing dataset {args.dataset}.")
 
         # get dataframes for businesses, users, and reviews
-        df_business, df_user, df_review = get_dataset_yelp()
+        df_business, df_user, df_review = get_dataset_yelp(args)
 
         # prepare node lists for business and users
         print("start preparing business nodes")
@@ -51,16 +53,17 @@ def yelp_prep(args):
                 largest_graph, first_label=0, ordering="default"
             )
 
-        # save the graph as a pickle file
-        pickle.dump(graph, open(graph_pickle_path, "wb"))
+        # save the graph
+        with open(graph_pickle_path, "wb") as f:
+            pickle.dump(graph, f)
     else:
-        # if the yelp graph exists, load it
-        print("loading dataset.")
-        graph = pickle.load(open(graph_pickle_path, "rb"))
+        print("Loading dataset.")
+        with open(graph_pickle_path, "rb") as f:
+            graph = pickle.load(f)
     return graph
 
 
-def get_dataset_yelp():
+def get_dataset_yelp(args):
     """A function to retrieve and prepare the Yelp dataframes from raw files"""
     business_cols = [
         "city",
@@ -85,7 +88,9 @@ def get_dataset_yelp():
 
     # load and prepare business data
     df_business = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/yelp_dataset/yelp_academic_dataset_business.csv"
+        f"{ROOT_DIR}/../datasets/"
+        + args.dataset
+        + "/yelp_academic_dataset_business.csv"
     )[business_cols].reset_index(drop=True)
     df_business.loc[df_business["categories"].isna(), "categories"] = ""
     df_business["business_id_new"] = (
@@ -101,7 +106,7 @@ def get_dataset_yelp():
 
     # load and prepare user data
     df_user = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/yelp_dataset/yelp_academic_dataset_user.csv"
+        f"{ROOT_DIR}/../datasets/" + args.dataset + "/yelp_academic_dataset_user.csv"
     )[user_cols].reset_index(drop=True)
     df_user["user_id_new"] = df_user["user_id"].astype("category").cat.codes
 
@@ -118,7 +123,7 @@ def get_dataset_yelp():
 
     # load and prepare review data
     df_review = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/yelp_dataset/yelp_academic_dataset_review.csv"
+        f"{ROOT_DIR}/../datasets/" + args.dataset + "/yelp_academic_dataset_review.csv"
     )[review_cols].reset_index(drop=True)
     df_review = df_review.merge(
         df_business.loc[:, ["business_id", "business_id_new"]],

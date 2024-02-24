@@ -5,17 +5,6 @@ import pandas as pd
 from config import ROOT_DIR
 import numpy as np
 
-# columns_to_keep = ["article_id", "gender", "cust_id", "location", "age"]
-# ages_ml = {
-#     1: "<18",
-#     18: "18-24",
-#     25: "25-34",
-#     35: "35-44",
-#     45: "45-49",
-#     50: "50-55",
-#     56: ">56",
-# }
-
 decades = {
     "0": "2000's",
     "1": "2010's",
@@ -59,81 +48,69 @@ occupations = {
 
 
 def movielens_prep(args):
-    # print(ROOT_DIR)
-    if not os.path.isfile(
-        os.path.join(ROOT_DIR, "../datasets", "MovieLens1", "graph.pickle")
-    ):
+    """
+    A function for preparing the MovieLens graph
+    """
+    graph_pickle_path = os.path.join(
+        ROOT_DIR, "../datasets", args.dataset, "graph.pickle"
+    )
+    if not os.path.isfile(graph_pickle_path):
         print(f"preparing dataset {args.dataset}.")
         args.logger.info(f"preparing dataset {args.dataset}.")
 
-        df_movies, df_users, df_ratings = get_dataset_movielens()
+        df_movies, df_users, df_ratings = get_dataset_movielens(args)
 
         # prepare node lists
         movie_list = getNodeList(df_movies)
+        user_list = getNodeList(df_users)
+
+        # prepare a graph and add nodes
         graph = nx.Graph()
         graph.add_nodes_from(movie_list)
-
-        user_list = getNodeList(df_users)
         graph.add_nodes_from(user_list)
 
         # prepare edge lists
         relation_list = getRelationList("user", "movie", df_ratings, graph)
         graph.add_edges_from(relation_list)
-        # print(nx.is_connected(graph))
 
-        # get the largest connected component
-        if nx.is_connected(graph):
-            graph = nx.relabel.convert_node_labels_to_integers(
-                graph, first_label=0, ordering="default"
-            )
-            print("The constructed graph is connected")
-
-        else:
+        # check graph connectivity
+        if not nx.is_connected(graph):
             print("The constructed graph is NOT connected")
             largest_cc = max(nx.connected_components(graph), key=len)
-            largest_graph = graph.subgraph(largest_cc)
-            graph = nx.relabel.convert_node_labels_to_integers(
-                largest_graph, first_label=0, ordering="default"
-            )
+            graph = graph.subgraph(largest_cc)
 
-        # add the popularity attribute
+        # Convert node labels to integers
+        graph = nx.relabel.convert_node_labels_to_integers(
+            graph, first_label=0, ordering="default"
+        )
+
+        # add popularity attribute to users
         new_attr = {}
         for i in graph.nodes():
             if graph.nodes[i]["label"] == "user":
-                # print(graph.degree[i])
                 deg = graph.degree[i]
-                if deg >= 180:
-                    popularity_type = "large"
-                elif 180 > deg >= 60:
-                    popularity_type = "medium"
-                else:
-                    popularity_type = "small"
+                popularity_type = (
+                    "large" if deg >= 180 else "medium" if 180 > deg >= 60 else "small"
+                )
                 new_attr[i] = {"popularity": deg, "popularity_type": popularity_type}
         nx.set_node_attributes(graph, new_attr)
 
         # save the graph
-        pickle.dump(
-            graph,
-            open(
-                os.path.join(os.getcwd(), "../datasets", "MovieLens1", "graph.pickle"),
-                "wb",
-            ),
-        )
+        with open(graph_pickle_path, "wb") as f:
+            pickle.dump(graph, f)
     else:
-        print("loading dataset.")
-        graph = pickle.load(
-            open(
-                os.path.join(ROOT_DIR, "../datasets", "MovieLens1", "graph.pickle"),
-                "rb",
-            )
-        )
+        print("Loading dataset.")
+        with open(graph_pickle_path, "rb") as f:
+            graph = pickle.load(f)
     return graph
 
 
-def get_dataset_movielens():
+def get_dataset_movielens(args):
     datContent = [
         str(i).strip().split("::")
-        for i in open(f"{ROOT_DIR}/../datasets/MovieLens1/movies.dat", "rb").readlines()
+        for i in open(
+            f"{ROOT_DIR}/../datasets/" + args.dataset + "/movies.dat", "rb"
+        ).readlines()
     ]
     item = pd.DataFrame(datContent, columns=["movieId", "name", "genres"])
 
@@ -148,7 +125,7 @@ def get_dataset_movielens():
     datContent = [
         str(i).strip().split("::")
         for i in open(
-            f"{ROOT_DIR}/../datasets/MovieLens1/ratings.dat", "rb"
+            f"{ROOT_DIR}/../datasets/" + args.dataset + "/ratings.dat", "rb"
         ).readlines()
     ]
     item_rating = pd.DataFrame(
@@ -265,9 +242,6 @@ def get_dataset_movielens():
     }
     df_ratings.rename(columns=columns, inplace=True)
 
-    # features2values = dict()
-    # for feature in ["age", "gender", "genre", "year", "occupation", "runtimeMinutes"]:
-    #     features2values[feature] = list(df[feature].unique())
     return df_movies, df_users, df_ratings  # , features2values  # df.shape=(996656, 11)
 
 
