@@ -298,10 +298,10 @@ def getPaths(args, new_graph):
                             res.append(new_graph.edges[e][extract_edge_attr])
 
                     # average
-                    # total_result[condition_name].append(sum(res) / len(res))
+                    total_result[condition_name].append(sum(res) / len(res))
 
                     # difference
-                    total_result[condition_name].append(abs(res[0] - res[1]))
+                    # total_result[condition_name].append(abs(res[0] - res[1]))
 
                     # only one valid edge on the path
                     # total_result[condition_name].append(res[0])

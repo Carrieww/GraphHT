@@ -65,7 +65,9 @@ class Opt_PHASE(Sampler):
         """
         assign weight to neighboring nodes.
         """
-        assert neighbor is not None, f"v must be provided for assigning path weights."
+        assert (
+            neighbor is not None
+        ), f"neighbor must be provided for assigning path weights."
 
         # path hypo
         assert len(self.path) > 0, f"Path condition must not be empty."
@@ -136,8 +138,10 @@ class Opt_PHASE(Sampler):
             )
 
     def _do_update(self, graph):
+        """
+        randomly select a seed node and pick a subset of neighbors for weight assigning process before selecting one
+        """
         # randomly pick one seed
-        num_neighbor = 30
         sample = np.random.choice(
             self._seeds, 1, replace=False, p=self._norm_seed_weights
         )[0]
@@ -147,7 +151,8 @@ class Opt_PHASE(Sampler):
         not_visited_nodes = set(graph.neighbors(sample)) - self._nodes
         neighbors = list(not_visited_nodes)
 
-        # pick a neighboring node
+        # pick a neighboring node from a subset of neighbors
+        num_neighbor = 30
         if len(neighbors) == 0:
             new_seed = random.choice(self.backend.get_neighbors(graph, sample))
             self.new_weight = self._assign_neighbor_weight(graph, neighbor=new_seed)

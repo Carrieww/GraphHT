@@ -4,7 +4,8 @@ import networkx as nx
 import numpy as np
 
 from extraction import new_graph_hypo_result
-from PHASE import newSampler
+from PHASE import PHASE
+from Opt_PHASE import Opt_PHASE
 from littleballoffur import (
     RandomNodeNeighborSampler,
     RandomWalkSampler,
@@ -58,7 +59,8 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
         "RES": RandomEdgeSampler_new,
         "RNES": RandomNodeEdgeSampler_new,
         "RES_Induction": RandomEdgeSamplerWithInduction,
-        "PHASE": newSampler,
+        "PHASE": PHASE,
+        "Opt_PHASE": Opt_PHASE,
     }
 
     if sampler_type not in sampler_mapping:
@@ -83,20 +85,21 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
         elif sampler_type in ["RES", "RNES", "RES_Induction"]:
             model = sampler_class(number_of_edges=args.ratio, seed=seed)
         elif sampler_type == "PHASE":
-            # if args.hypo in [1, 3]:
-            #     no_repeat = "edge"
-            # else:
-            #     no_repeat = "node"
-            model = newSampler(
+            model = PHASE(
                 args.attribute[str(list(args.attribute.keys())[0])]["path"],
                 number_of_nodes=args.ratio,
-                # no_repeat=no_repeat,
+                seed=seed,
+            )
+        elif sampler_type == "Opt_PHASE":
+            model = Opt_PHASE(
+                args.attribute[str(list(args.attribute.keys())[0])]["path"],
+                number_of_nodes=args.ratio,
                 seed=seed,
             )
         else:
             model = sampler_class(number_of_nodes=args.ratio, seed=seed)
 
-        if sampler_type == "PHASE":
+        if sampler_type == "PHASE" or sampler_type == "Opt_PHASE":
             new_graph = model.sample(graph, args)
         else:
             new_graph = model.sample(graph)
@@ -282,7 +285,6 @@ class CommunityStructureExpansionSampler_new(CommunityStructureExpansionSampler)
         largest_expansion = 0
         for node in self._targets:
             if node in self.known_expansion.keys():
-                # print("here")
                 expansion = self.known_expansion[node]
             else:
                 expansion = len(

@@ -38,12 +38,11 @@ def run_sampling_and_hypothesis_testing(args, graph):
     args.overall_time = time.time()
     args.coverage = defaultdict(list)
 
-    if args.sampling_ratio == "auto":
-        args.sampling_ratio = [
-            int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
-        ]
-        print(f"the list of sampling size is {args.sampling_ratio}")
-        args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
+    args.sampling_ratio = [
+        int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
+    ]
+    print(f"the list of sampling size is {args.sampling_ratio}")
+    args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
 
     args.time_result = defaultdict(list)
     for ratio in args.sampling_ratio:
@@ -383,6 +382,7 @@ def samplingGraph(args, graph):
         "RNES",
         "RES_Induction",
         "PHASE",
+        "Opt_PHASE",
     ]
 
     # if the sampling method is supported, call the selected function and update result and time tracking

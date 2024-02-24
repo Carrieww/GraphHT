@@ -3,7 +3,7 @@ import numpy as np
 import random
 
 
-class newSampler(Sampler):
+class PHASE(Sampler):
     """
     Args:
         number_of_seeds (int): Number of seed nodes. Default is 50.
@@ -65,7 +65,9 @@ class newSampler(Sampler):
         """
         assign weight to neighboring nodes.
         """
-        assert neighbor is not None, f"v must be provided for assigning path weights."
+        assert (
+            neighbor is not None
+        ), f"neighbor must be provided for assigning path weights."
 
         # path hypo
         assert len(self.path) > 0, f"Path condition must not be empty."
@@ -136,26 +138,21 @@ class newSampler(Sampler):
             )
 
     def _do_update(self, graph):
-        # randomly pick one seed
-        # num_neighbor = 30
+        """
+        randomly select a seed node and pick a random neighbor from all neighbors
+        """
         sample = np.random.choice(
             self._seeds, 1, replace=False, p=self._norm_seed_weights
         )[0]
         self.index = self._seeds.index(sample)
 
-        # remove visited nodes from neighbor nodes
-        # not_visited_nodes = set(graph.neighbors(sample)) - self._nodes
-        # neighbors = list(not_visited_nodes)
-
         neighbors = list(set(graph.neighbors(sample)))
-        num_neighbor = len(neighbors)
 
         # pick a neighboring node
         if len(neighbors) == 0:
             new_seed = random.choice(self.backend.get_neighbors(graph, sample))
             self.new_weight = self._assign_neighbor_weight(graph, neighbor=new_seed)
         else:
-            neighbors = random.sample(neighbors, k=min(num_neighbor, len(neighbors)))
             neighbor_weight = [
                 self._assign_neighbor_weight(graph, neighbor=i) for i in neighbors
             ]
