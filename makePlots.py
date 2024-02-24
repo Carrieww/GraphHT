@@ -46,10 +46,6 @@ save_path = (
     + plot_code
     + ".png"
 )
-title = y_label + " - " + file_code
-###############################################
-############## can change above ###############
-###############################################
 
 sm = [
     "RES",
@@ -66,6 +62,11 @@ ours_color = "#FF4500"
 
 linestyle = ["--", ":", "-.", "-"]
 markerstyle = ["o", "v", ">", "X", "D"]
+
+###############################################
+############## can change above ###############
+###############################################
+
 index = 0
 plt.figure(figsize=(8, 6))
 
@@ -244,7 +245,6 @@ elif y_label == "CI":
 plt.xticks(x_ticks, x_ticks)
 plt.xlabel("Sampling Proportion (%)", fontsize=18, fontweight="bold")
 plt.ylabel(y_label, fontsize=18, fontweight="bold")
-# plt.title(title, fontsize=20, fontweight="bold")
 
 plt.yticks(fontsize=14)
 plt.xticks(fontsize=14)
