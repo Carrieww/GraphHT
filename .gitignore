@@ -4,6 +4,7 @@ datasets/
 __pycache__/
 .vscode/
 .venv/
+venv/
 .ipynb_checkpoints/
 .DS_Store
 .cache
@@ -11,3 +12,5 @@ __pycache__/
 __pypackages__/
 .idea/
 result/
+
+FromServer/*

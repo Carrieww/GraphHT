@@ -13,7 +13,7 @@ def citation_prep(args):
     A function for preparing the DBLP citation graph
     """
     graph_pickle_path = os.path.join(
-        ROOT_DIR, "../datasets", args.dataset, "graph.pickle"
+        ROOT_DIR, "datasets", args.dataset, "graph.pickle"
     )
     if not os.path.isfile(graph_pickle_path):
         # prepare node list
@@ -24,7 +24,7 @@ def citation_prep(args):
         dfs = ["papers", "authors", "fos", "venues"]
         for df_name in dfs:
             df = pd.read_csv(
-                os.path.join(ROOT_DIR, "../datasets", args.dataset, f"{df_name}.csv")
+                os.path.join(ROOT_DIR, "datasets", args.dataset, f"{df_name}.csv")
             )
             node_list = getNodeList(df)
             graph.add_nodes_from(node_list)
@@ -38,7 +38,7 @@ def citation_prep(args):
         ]
         for df_name in dfs_relations:
             df = pd.read_csv(
-                os.path.join(ROOT_DIR, "../datasets", args.dataset, f"{df_name[0]}.csv")
+                os.path.join(ROOT_DIR, "datasets", args.dataset, f"{df_name[0]}.csv")
             )
             relation_list = getRelationList("id", df_name[1], df, graph)
             graph.add_edges_from(relation_list)

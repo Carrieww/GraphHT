@@ -52,7 +52,7 @@ def movielens_prep(args):
     A function for preparing the MovieLens graph
     """
     graph_pickle_path = os.path.join(
-        ROOT_DIR, "../datasets", args.dataset, "graph.pickle"
+        ROOT_DIR, "datasets", args.dataset, "graph.pickle"
     )
     if not os.path.isfile(graph_pickle_path):
         print(f"preparing dataset {args.dataset}.")
@@ -109,7 +109,7 @@ def get_dataset_movielens(args):
     datContent = [
         str(i).strip().split("::")
         for i in open(
-            f"{ROOT_DIR}/../datasets/" + args.dataset + "/movies.dat", "rb"
+            f"{ROOT_DIR}/datasets/" + args.dataset + "/movies.dat", "rb"
         ).readlines()
     ]
     item = pd.DataFrame(datContent, columns=["movieId", "name", "genres"])
@@ -125,7 +125,7 @@ def get_dataset_movielens(args):
     datContent = [
         str(i).strip().split("::")
         for i in open(
-            f"{ROOT_DIR}/../datasets/" + args.dataset + "/ratings.dat", "rb"
+            f"{ROOT_DIR}/datasets/" + args.dataset + "/ratings.dat", "rb"
         ).readlines()
     ]
     item_rating = pd.DataFrame(
@@ -141,7 +141,7 @@ def get_dataset_movielens(args):
 
     datContent = [
         str(i).strip().split("::")
-        for i in open(f"{ROOT_DIR}/../datasets/MovieLens1/users.dat", "rb").readlines()
+        for i in open(f"{ROOT_DIR}/datasets/MovieLens1/users.dat", "rb").readlines()
     ]
 
     user = pd.DataFrame(
@@ -161,14 +161,14 @@ def get_dataset_movielens(args):
     item_rating.rename(columns={"movieId": "itemId"}, inplace=True)
 
     movies_links = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/MovieLens25/links.csv"
+        f"{ROOT_DIR}/datasets/MovieLens25/links.csv"
     )  # Link between MovieLen and IMDB
     movies_links.rename(columns={"movieId": "itemId"}, inplace=True)
     movies_links = movies_links[["itemId", "imdbId"]]
 
-    # imdb_movies = pd.read_csv(f'{ROOT_DIR}/../datasets/IMDB/title.basics.tsv',sep='\t') #SHOWS
+    # imdb_movies = pd.read_csv(f'{ROOT_DIR}/datasets/IMDB/title.basics.tsv',sep='\t') #SHOWS
     imdb_movies = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/IMDB/title.basics.tsv",
+        f"{ROOT_DIR}/datasets/IMDB/title.basics.tsv",
         sep="\t",
         dtype={"isAdult": object, "startYear": object},
     )  # SHOWS

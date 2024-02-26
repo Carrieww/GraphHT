@@ -11,7 +11,7 @@ def yelp_prep(args):
     A function for preparing the Yelp graph
     """
     graph_pickle_path = os.path.join(
-        ROOT_DIR, "../datasets", args.dataset, "graph.pickle"
+        ROOT_DIR, "datasets", args.dataset, "graph.pickle"
     )
     # check if the graph is already prepared
     if not os.path.isfile(graph_pickle_path):
@@ -88,7 +88,7 @@ def get_dataset_yelp(args):
 
     # load and prepare business data
     df_business = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/"
+        f"{ROOT_DIR}/datasets/"
         + args.dataset
         + "/yelp_academic_dataset_business.csv"
     )[business_cols].reset_index(drop=True)
@@ -106,7 +106,7 @@ def get_dataset_yelp(args):
 
     # load and prepare user data
     df_user = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/" + args.dataset + "/yelp_academic_dataset_user.csv"
+        f"{ROOT_DIR}/datasets/" + args.dataset + "/yelp_academic_dataset_user.csv"
     )[user_cols].reset_index(drop=True)
     df_user["user_id_new"] = df_user["user_id"].astype("category").cat.codes
 
@@ -123,7 +123,7 @@ def get_dataset_yelp(args):
 
     # load and prepare review data
     df_review = pd.read_csv(
-        f"{ROOT_DIR}/../datasets/" + args.dataset + "/yelp_academic_dataset_review.csv"
+        f"{ROOT_DIR}/datasets/" + args.dataset + "/yelp_academic_dataset_review.csv"
     )[review_cols].reset_index(drop=True)
     df_review = df_review.merge(
         df_business.loc[:, ["business_id", "business_id_new"]],
