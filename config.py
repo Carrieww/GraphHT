@@ -12,8 +12,8 @@ def parse_args():
     parser.add_argument(
         "--dataset",
         type=str,
-        default="movielens",
-        choices=["DBLP", "yelp", "movielens"],
+        default="yelp",
+        choices=["citation", "yelp", "movielens"],
         help="choose dataset from DBLP, yelp, or movielens.",
     )
     parser.add_argument(
@@ -41,11 +41,26 @@ def parse_args():
         help="number of samples to draw from the input graph.",
     )
 
+    ########## parameters for time accuracy plots ##########
+    parser.add_argument(
+        "--time_accuracy",
+        type=bool,
+        default=True,
+        help="If False, then your input sampling percent will take effect. If True, the algo starts from 1/1000 nodes until time >= 30s or accuracy reaches 1",
+    )
+
+    parser.add_argument(
+        "--time_accuracy_time",
+        type=int,
+        default=30,
+        help="If time_accuracy is False, then your input sampling percent will take effect. If True, the algo starts from 1/1000 nodes until time >= time_accuracy_time (sec) or accuracy reaches 1",
+    )
+
     ########## parameters for hypothesis ##########
     parser.add_argument(
         "--H0",
         type=str,
-        default="The avg rating of action movies is greater than 3",
+        default="The avg rating difference on path [business in FL - high popularity user - business in LA] is greater than 0.5",
         help="The null hypothesis.",
     )
     parser.add_argument(
@@ -58,16 +73,7 @@ def parse_args():
     parser.add_argument(
         "--attribute",
         type=dict,
-        default={
-            "1-1-1": {
-                "edge": "rating",
-                "movie": {"Action": 1},
-                "path": [
-                    {"type": "user", "attribute": {}},
-                    {"type": "movie", "attribute": {"Action": 1}},
-                ],
-            }
-        },
+        default={'3-1-1': {'edge': 'stars', 'path': [{'type': 'business', 'attribute': {'state': 'FL'}}, {'type': 'user', 'attribute': {'popularity': 'high'}}, {'type': 'business', 'attribute': {'state': 'LA'}}]}},
         help="the attributes you want to test hypothesis on.",
     )
     parser.add_argument(
@@ -79,7 +85,7 @@ def parse_args():
     parser.add_argument(
         "--hypo",
         type=int,
-        default=1,
+        default=3,
         choices=[1, 2, 3],
         help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
     )
@@ -94,7 +100,7 @@ def parse_args():
     parser.add_argument(
         "--c",
         type=float,
-        default=3,
+        default=0.5,
         help="a constant value in the hypothesis.",
     )
 

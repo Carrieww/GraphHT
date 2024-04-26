@@ -38,11 +38,16 @@ def run_sampling_and_hypothesis_testing(args, graph):
     args.overall_time = time.time()
     args.coverage = defaultdict(list)
 
-    args.sampling_ratio = [
-        int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
-    ]
-    print(f"the list of sampling size is {args.sampling_ratio}")
-    args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
+    if args.time_accuracy:
+        args.sampling_ratio = list(range(100, 200, 100))
+        print(f"the list of sampling size is range(100, args.num_nodes, 100)")
+        args.logger.info(f"the list of sampling size is range(100, args.num_nodes, 100)")
+    else:
+        args.sampling_ratio = [
+            int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
+        ]
+        print(f"the list of sampling size is {args.sampling_ratio}")
+        args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
 
     args.time_result = defaultdict(list)
     for ratio in args.sampling_ratio:
@@ -76,7 +81,13 @@ def run_sampling_and_hypothesis_testing(args, graph):
         args.logger.info(
             f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
         )
-        get_results(args, result_list)
+
+        accuracy = get_results(args, result_list)
+
+        if args.time_accuracy and total_time > args.time_accuracy_time:
+            break
+        if args.time_accuracy and accuracy >= 1:
+            break
 
 
 def get_results(args, result_list):
@@ -146,6 +157,8 @@ def get_results(args, result_list):
         raise Exception(
             "Sorry we do not support hypothesis types other than one-sample and two-sample."
         )
+
+    return accuracy
 
 
 def print_results(args):
@@ -344,6 +357,8 @@ def getGroundTruth(args, graph):
         if args.agg == "mean":
             ground_truth_result = HypothesisTesting(args, v, 1)
             avg_v = round(sum(v) / len(v), 2)
+            # TODO: remove this
+            args.ground_truth_value = avg_v
             args.logger.info(
                 f"{k}: The ground truth ({avg_v}) result is {ground_truth_result}, taking time {round(time.time()-time_get_ground_truth, 2)}."
             )
