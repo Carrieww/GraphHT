@@ -39,9 +39,9 @@ def run_sampling_and_hypothesis_testing(args, graph):
     args.coverage = defaultdict(list)
 
     if args.time_accuracy:
-        args.sampling_ratio = list(range(100, 200, 100))
-        print(f"the list of sampling size is range(100, args.num_nodes, 100)")
-        args.logger.info(f"the list of sampling size is range(100, args.num_nodes, 100)")
+        args.sampling_ratio = list(range(1000, args.num_nodes, 1000))
+        print(f"the list of sampling size is list(range(1000, args.num_nodes, 1000))")
+        args.logger.info(f"the list of sampling size is list(range(1000, args.num_nodes, 1000))")
     else:
         args.sampling_ratio = [
             int(args.num_nodes * (percent / 100)) for percent in args.sampling_percent
@@ -50,6 +50,7 @@ def run_sampling_and_hypothesis_testing(args, graph):
         args.logger.info(f"the list of sampling size is {args.sampling_ratio}")
 
     args.time_result = defaultdict(list)
+    acc_count = 0
     for ratio in args.sampling_ratio:
         # sampling setup and execution
         args.valid_edges = []
@@ -57,7 +58,7 @@ def run_sampling_and_hypothesis_testing(args, graph):
         time_ratio_start = time.time()
         args.ratio = ratio
         args.logger.info(f">>> sampling ratio: {args.ratio}")
-        result_list = samplingGraph(args, graph)
+        result_list, t_sample = samplingGraph(args, graph)
 
         valid_e_n = round(sum(args.valid_edges) / len(args.valid_edges), 2)
         print(f"average valid nodes/edges are {valid_e_n}")
@@ -81,14 +82,18 @@ def run_sampling_and_hypothesis_testing(args, graph):
         args.logger.info(
             f">>> Total time for sampling at {args.ratio} ratio is {total_time_format}."
         )
-
         accuracy = get_results(args, result_list)
+        args.logger.info(f"accuracy here is {accuracy}")
 
-        if args.time_accuracy and total_time > args.time_accuracy_time:
-            break
-        if args.time_accuracy and accuracy >= 1:
+        if args.time_accuracy and t_sample > args.time_accuracy_time:
+            args.logger.info(f"time for one sampling {t_sample} reaches the limit {args.time_accuracy_time}.")
             break
 
+        if args.time_accuracy and accuracy >= 1 and acc_count >= 3:
+            args.logger.info(f"accuracy reaches 1 for at least three times.")
+            break
+        elif args.time_accuracy and accuracy >= 1 and acc_count < 3:
+            acc_count += 1
 
 def get_results(args, result_list):
     """
@@ -157,7 +162,6 @@ def get_results(args, result_list):
         raise Exception(
             "Sorry we do not support hypothesis types other than one-sample and two-sample."
         )
-
     return accuracy
 
 
@@ -203,15 +207,15 @@ def print_results(args):
 
         # Print the results
         result_format = (
-            f"{sampling_time:.2f}".ljust(25)
-            + f"{target_extraction_time:.2f}".ljust(25)
-            + f"{total_time:.2f}".ljust(25)
-            + f"{accuracy:.2f}".ljust(25)
-            + f"{args.sampling_ratio[index]}".ljust(25)
-            + f"{valid_nodes_edges_paths:.2f}".ljust(25)
-            + f"{CI_lower:.2f}".ljust(25)
-            + f"{CI_upper:.2f}".ljust(25)
-            + f"{p_value:.2f}".ljust(25)
+                f"{sampling_time:.2f}".ljust(25)
+                + f"{target_extraction_time:.2f}".ljust(25)
+                + f"{total_time:.2f}".ljust(25)
+                + f"{accuracy:.2f}".ljust(25)
+                + f"{args.sampling_ratio[index]}".ljust(25)
+                + f"{valid_nodes_edges_paths:.2f}".ljust(25)
+                + f"{CI_lower:.2f}".ljust(25)
+                + f"{CI_upper:.2f}".ljust(25)
+                + f"{p_value:.2f}".ljust(25)
         )
         print(result_format)
         args.logger.info(result_format)
@@ -257,13 +261,13 @@ def print_results(args):
 
             # Print the hypothesis results
             hypothesis_result_format = (
-                f"{user_coverage:.3f}".ljust(25)
-                + f"{movie_coverage:.3f}".ljust(25)
-                + f"{total_valid_paths:.3f}".ljust(25)
-                + f"{num_reverse_paths:.3f}".ljust(25)
-                + f"{num_self_loops:.3f}".ljust(25)
-                + f"{density:.3f}".ljust(25)
-                + f"{diameter:.3f}".ljust(25)
+                    f"{user_coverage:.3f}".ljust(25)
+                    + f"{movie_coverage:.3f}".ljust(25)
+                    + f"{total_valid_paths:.3f}".ljust(25)
+                    + f"{num_reverse_paths:.3f}".ljust(25)
+                    + f"{num_self_loops:.3f}".ljust(25)
+                    + f"{density:.3f}".ljust(25)
+                    + f"{diameter:.3f}".ljust(25)
             )
 
             print(hypothesis_result_format)
@@ -357,7 +361,6 @@ def getGroundTruth(args, graph):
         if args.agg == "mean":
             ground_truth_result = HypothesisTesting(args, v, 1)
             avg_v = round(sum(v) / len(v), 2)
-            # TODO: remove this
             args.ground_truth_value = avg_v
             args.logger.info(
                 f"{k}: The ground truth ({avg_v}) result is {ground_truth_result}, taking time {round(time.time()-time_get_ground_truth, 2)}."
@@ -433,7 +436,7 @@ def samplingGraph(args, graph):
     )
     args.time_result[args.ratio].append(round(time_extraction, 5))
 
-    return result_list
+    return result_list, round(time_one_sample, 2)
 
 
 if __name__ == "__main__":

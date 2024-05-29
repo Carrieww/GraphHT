@@ -5,12 +5,13 @@ __pycache__/
 .vscode/
 .venv/
 venv/
+logloglog/
 .ipynb_checkpoints/
 .DS_Store
 .cache
 *.log
 __pypackages__/
 .idea/
-result/
-
+result/*
 FromServer/*
+time_accuracy_plots/
