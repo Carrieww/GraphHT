@@ -157,7 +157,7 @@ def HypothesisTesting(args, result_list, verbose=1):
             result_list, popmean=args.c, alternative=alternative
         )
         CI_lower, CI_upper = stats.t.interval(
-            confidence=args.alpha,
+            confidence=1-args.alpha,
             df=len(result_list) - 1,
             loc=np.mean(result_list),
             scale=stats.sem(result_list),
