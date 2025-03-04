@@ -160,7 +160,7 @@ def get_results(args, result_list):
         )
     else:
         raise Exception(
-            "Sorry we do not support hypothesis types other than one-sample and two-sample."
+            "Sorry we do not support hypothesis types other than one-sample."
         )
     return accuracy
 
