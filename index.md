@@ -59,11 +59,10 @@ title: GraphHT
 
 <h2>Citation</h2>
 
-```bibtex
-@article{wang2024sampling,
+<pre><code>@article{wang2024sampling,
   title={A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs},
   author={Wang, Yun and Kosyfaki, Chrysanthi and Amer-Yahia, Sihem and Cheng, Reynold},
   journal={[Journal Name]},
   year={2024}
 }
-```
+</code></pre>
