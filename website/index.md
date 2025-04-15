@@ -1,61 +1,48 @@
 ---
 layout: default
-title: GraphHT - A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs
+title: GraphHT
 ---
 
-# GraphHT
+# GraphHT: A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs
 
-A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs
+**Yun Wang**, **Chrysanthi Kosyfaki**, **Sihem Amer-Yahia**, **Reynold Cheng**
 
-## Overview
+[**[Paper]**](#) **[Code](https://github.com/Carrieww/GraphHT)** **[Download](/download)** **[About](/about)**
 
-This repository contains the implementations of:
-1. The sampling-based hypothesis testing framework
-2. The hypothesis-aware samplers PHASE and its optimized version Opt-PHASE
+![Framework Overview](img/framework.png)
 
-## Quick Links
+Hypothesis testing is a statistical method used to draw conclusions about populations from sample data. While traditionally applied to tabular data, the prevalence of graph representations in real-life applications calls for efficient hypothesis testing methods on graphs.
 
-- [Paper](#)
-- [Code](https://github.com/Carrieww/GraphHT)
-- [Installation](#installation)
-- [Results](#results)
+**GraphHT introduces a novel sampling-based framework for hypothesis testing on large attributed graphs.**
 
-## Abstract
+## Key Features
 
-[Your paper's abstract will go here]
+- **Efficient Sampling**: Our framework provides efficient sampling methods for large attributed graphs
+- **Hypothesis Testing**: Support for various hypothesis testing scenarios on nodes, edges, and paths
+- **PHASE Sampler**: A novel Path-Hypothesis-Aware SamplEr using m-dimensional random walks
+- **Optimized Implementation**: Includes both basic and optimized versions (PHASE<sub>opt</sub>) of the sampler
 
-## Installation
+## Experimental Results
 
-1. Download the repository
-```bash
-git clone https://github.com/Carrieww/GraphHT.git
+Our comprehensive experiments demonstrate the effectiveness of our approach:
+
+### DBLP Dataset Performance
+![DBLP Results](img/DBLP.png)
+
+### Yelp Dataset Performance
+![Yelp Results](img/Yelp.png)
+
+## Citation
+
+```bibtex
+@article{wang2024sampling,
+  title={A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs},
+  author={Wang, Yun and Kosyfaki, Chrysanthi and Amer-Yahia, Sihem and Cheng, Reynold},
+  journal={[Journal Name]},
+  year={2024}
+}
 ```
-
-2. Install required packages
-```bash
-pip install -r requirements.txt
-```
-
-3. Run the framework
-```bash
-python main.py --sampling_method "PHASE"
-```
-or specify the sampling method in `run.sh` and run
-```bash
-bash run.sh
-```
-
-## Results
-
-[Add your key results and visualizations here]
-
-## Authors
-
-* **Yun Wang** - Department of Computer Science, the University of Hong Kong
-* **Chrysanthi Kosyfaki** - Department of Computer Science, the University of Hong Kong
-* **Sihem Amer-Yahia** - CNRS, The Université Grenoble Alpes
-* **Reynold Cheng** - Department of Computer Science, the University of Hong Kong
 
 ## Contact
 
-If you have any inquiry or bug report, please send emails to [carrie07@connect.hku.hk](mailto:carrie07@connect.hku.hk). 
+For questions and feedback, please contact [carrie07@connect.hku.hk](mailto:carrie07@connect.hku.hk) 

@@ -1,13 +1,21 @@
 title: GraphHT
 description: A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs
-baseurl: "" # the subpath of your site, e.g. /blog
-url: "" # the base hostname & protocol for your site, e.g. http://example.com
+baseurl: "/GraphHT"
+url: "https://carrieww.github.io"
 
 # Build settings
 markdown: kramdown
 theme: minima
 plugins:
   - jekyll-feed
+
+# Author information
+author:
+  name: Yun Wang
+  email: carrie07@connect.hku.hk
+
+# Social links
+github_username: Carrieww
 
 # Exclude from processing
 exclude:
