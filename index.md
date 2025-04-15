@@ -7,7 +7,7 @@ title: GraphHT
 
 **Yun Wang**, **Chrysanthi Kosyfaki**, **Sihem Amer-Yahia**, **Reynold Cheng**
 
-[**[Paper]**](#) **[Code](https://github.com/Carrieww/GraphHT)** **[Download](/download)** **[About](/about)**
+[**[Paper]**](#) **[Code](https://github.com/Carrieww/GraphHT)**
 
 ![Framework Overview](img/framework.png)
 

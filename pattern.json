@@ -1,0 +1,15 @@
+{
+  "path-1": {
+    "nodes": {
+      "n0": {"type": "author", "attribute": {"author_org": "Microsoft Research"}},
+      "n1": {"type": "paper", "attribute": {}},
+      "n2": {"type": "venue", "attribute": {"venue_type": "C"}}
+    },
+    "edges": [["n0", "n1"], ["n1", "n2"]],
+    "target": {
+      "node": "n1",
+      "attribute": "n_citation"
+    },
+    "meta_root": "n0"
+  }
+}
