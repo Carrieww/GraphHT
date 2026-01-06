@@ -13,7 +13,7 @@ title: GraphHT
 <div style="text-align: center;">
   <h1>GraphHT: A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs</h1>
   <p><strong>Yun Wang, Chrysanthi Kosyfaki, Sihem Amer-Yahia, Reynold Cheng</strong></p>
-  <p><strong><a href="#">[Paper]</a></strong> &nbsp;&nbsp; <strong><a href="https://github.com/Carrieww/GraphHT">[Code]</a></strong></p>
+  <p><strong><a href="https://arxiv.org/pdf/2403.13286">[Paper]</a></strong> &nbsp;&nbsp; <strong><a href="https://github.com/Carrieww/GraphHT">[Code]</a></strong></p>
 </div>
 
 <p align="center">

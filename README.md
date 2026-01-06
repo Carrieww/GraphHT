@@ -1,7 +1,15 @@
 # A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs
-This repository contains the implementations of 1) the sampling-based hypothesis testing framework and 2) the hypothesis-aware samplers PHASE and its optimized version Opt-PHASE. 
 
-[//]: # (The details of the framework and the samplers are described in the following paper:)
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+
+This repository contains the implementation and experimental data for the paper **A Sampling-based Framework for Hypothesis Testing on Large Attributed Graphs**, accepted to **PVLDB 2024**.
+
+📄 **Paper**: [Link to paper](https://arxiv.org/pdf/2403.13286)
+
+This repository contains the implementations of 
+1) the sampling-based hypothesis testing framework 
+2) the hypothesis-aware samplers PHASE and its optimized version Opt-PHASE.
 
 ## Install and Run
 
@@ -45,31 +53,21 @@ If you want to get plots for accuracy, time, p-value, and confidence interval ve
 [//]: # ()
 [//]: # (Please read [CONTRIBUTING.md]&#40;https://gist.github.com/PurpleBooth/b24679402957c63ec426&#41; for details on our code of conduct, and the process for submitting pull requests to us.)
 
-## Authors
+## Citation
 
+If you find this work useful in your research, please cite:
 
-* **Yun Wang** - Department of Computer Science, the University of Hong Kong
+```bibtex
+@article{wang2024sampling,
+  title={A Sampling-Based Framework for Hypothesis Testing on Large Attributed Graphs},
+  author={Wang, Yun and Kosyfaki, Chrysanthi and Amer-Yahia, Sihem and Cheng, Reynold},
+  journal={Proceedings of the VLDB Endowment},
+  volume={17},
+  number={11},
+  pages={3192--3200},
+  year={2024},
+  publisher={VLDB Endowment}
+}
+```
 
-* **Chrysanthi Kosyfaki** - Department of Computer Science, the University of Hong Kong
-
-* **Sihem Amer-Yahia** - CNRS, The Université Grenoble Alpes
-
-* **Reynold Cheng** - Department of Computer Science, the University of Hong Kong
-
-## Contact us
-If you have any inquiry or bug report, please send emails to me at <a href="mailto:carrie07@connect.hku.hk">carrie07@connect.hku.hk</a>.
-
-
-[//]: # (## License)
-
-[//]: # ()
-[//]: # (This project is licensed under the MIT License - see the [LICENSE.md]&#40;LICENSE.md&#41; file for details)
-
-[//]: # (## Acknowledgments)
-
-[//]: # ()
-[//]: # (* Hat tip to anyone whose code was used)
-
-[//]: # (* Inspiration)
-
-[//]: # (* etc)
+**For questions or issues, please refer to the paper or contact the authors.**
