@@ -161,18 +161,8 @@ def parse_args():
     if not args.hypothesis_pattern or len(args.hypothesis_pattern) == 0:
         raise ValueError("hypothesis_pattern is required and cannot be empty.")
 
-    pattern_key = list(args.hypothesis_pattern.keys())[0]
-    pattern = args.hypothesis_pattern[pattern_key]
-
-    # Extract type (hypo)
-    if "type" not in pattern:
-        raise ValueError("hypothesis_pattern must contain a 'type' key.")
-    type_mapping = {"edge": 1, "node": 2, "path": 3, "subgraph": 4}
-    if pattern["type"] not in type_mapping:
-        raise ValueError(
-            f"Invalid type '{pattern['type']}'. Must be one of: {list(type_mapping.keys())}"
-        )
-    args.hypo = type_mapping[pattern["type"]]
+    args.condition_name = list(args.hypothesis_pattern.keys())[0]
+    pattern = args.hypothesis_pattern[args.condition_name]
 
     # Extract test parameters
     if "test" not in pattern:

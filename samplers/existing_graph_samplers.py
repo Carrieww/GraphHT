@@ -1,5 +1,6 @@
 import random
 import time
+from collections import defaultdict
 
 import networkx as nx
 import numpy as np
@@ -23,150 +24,11 @@ from littleballoffur import (
     SnowBallSampler,
 )
 
-from extraction import new_graph_hypo_result
-from Opt_PHASE import Opt_PHASE
-from PHASE import PHASE
-from subgraph_sampler import TriangleSubgraphSampler
-
-
-def time_sampling_extraction(
-    args, new_graph, result_list, time_used_list, time_one_sample_start, num_sample
-):
-    args.logger.info(
-        f"Time for sampling once {args.ratio}: {round(time.time() - time_one_sample_start, 2)}."
-    )
-    time_used_list["sampling"].append(round(time.time() - time_one_sample_start, 2))
-
-    result_list = new_graph_hypo_result(args, new_graph, result_list, time_used_list)
-
-    return result_list, time_used_list
-
-
-def sample_graph(args, graph, result_list, time_used_list, sampler_type):
-    sampler_mapping = {
-        "RNNS": RandomNodeNeighborSampler,
-        "SRW": RandomWalkSampler,
-        "FFS": ForestFireSampler,
-        "ShortestPathS": ShortestPathSampler,
-        "MHRWS": MetropolisHastingsRandomWalkSampler,
-        "CommunitySES": CommunityStructureExpansionSampler_new,
-        "NBRW": NonBackTrackingRandomWalkSampler,
-        "SBS": SnowBallSampler_new,
-        "RW_Starter": RandomWalkWithRestartSampler_new,
-        "FrontierS": FrontierSampler_new,
-        "CNARW": CommonNeighborAwareRandomWalkSampler_new,
-        "RNS": RandomNodeSampler,
-        "DBS": DegreeBasedSampler,
-        "PRBS": PageRankBasedSampler,
-        "RES": RandomEdgeSampler_new,
-        "RNES": RandomNodeEdgeSampler_new,
-        "RES_Induction": RandomEdgeSamplerWithInduction,
-        "PHASE": PHASE,
-        "Opt_PHASE": Opt_PHASE,
-        "TriangleS": TriangleSubgraphSampler,
-    }
-
-    if sampler_type not in sampler_mapping:
-        raise ValueError("Invalid sampler type.")
-
-    sampler_class = sampler_mapping[sampler_type]
-
-    args.CI = {"lower": [], "upper": []}
-    args.p_value = []
-    for num_sample in range(args.num_samples):
-        time_one_sample_start = time.time()
-        seed = int(args.seed) * num_sample
-
-        if sampler_type == "FFS":
-            model = sampler_class(number_of_nodes=args.ratio, seed=seed, p=0.4)
-        elif sampler_type == "MHRWS":
-            model = sampler_class(number_of_nodes=args.ratio, seed=seed, alpha=0.5)
-        elif sampler_type == "SBS":
-            model = sampler_class(number_of_nodes=args.ratio, seed=seed, k=200)
-        elif sampler_type == "RW_Starter":
-            model = sampler_class(number_of_nodes=args.ratio, seed=seed, p=0.01)
-        elif sampler_type in ["RES", "RNES", "RES_Induction"]:
-            model = sampler_class(number_of_edges=args.ratio, seed=seed)
-        elif sampler_type == "PHASE":
-            model = PHASE(
-                args.hypothesis_pattern[str(list(args.hypothesis_pattern.keys())[0])][
-                    "path"
-                ],
-                number_of_nodes=args.ratio,
-                seed=seed,
-            )
-        elif sampler_type == "Opt_PHASE":
-            model = Opt_PHASE(
-                args.hypothesis_pattern[str(list(args.hypothesis_pattern.keys())[0])][
-                    "path"
-                ],
-                number_of_nodes=args.ratio,
-                seed=seed,
-            )
-        elif sampler_type == "TriangleS":
-            # Get the hypothesis pattern for subgraph sampling
-            pattern_key = str(list(args.hypothesis_pattern.keys())[0])
-            pattern = args.hypothesis_pattern[pattern_key]
-            model = TriangleSubgraphSampler(
-                pattern=pattern,
-                number_of_subgraphs=args.ratio,  # args.ratio represents number of subgraphs to sample
-                seed=seed,
-            )
-        else:
-            model = sampler_class(number_of_nodes=args.ratio, seed=seed)
-
-        if sampler_type == "TriangleS":
-            Set_S = model.sample(graph)
-        else:
-            if sampler_type in ["PHASE", "Opt_PHASE"]:
-                new_graph = model.sample(graph, args)
-            else:
-                new_graph = model.sample(graph)
-            num_nodes = new_graph.number_of_nodes()
-            num_edges = new_graph.number_of_edges()
-
-            args.logger.info(
-                f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
-            )
-            print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
-
-        # decouple the pattern extraction and hypothesis testing.
-        # For sampler_type other than TriangleS, we need to extract the pattern from the sampled graph.
-        # But for TriangleS, the output is a already list of triangles, we can directly perform hypothesis testing.
-        result_list, time_used_list = time_sampling_extraction(
-            args,
-            new_graph,
-            result_list,
-            time_used_list,
-            time_one_sample_start,
-            num_sample,
-        )
-
-    if len(args.CI["lower"]) > 0:
-        args.time_result[args.ratio].append(
-            round(sum(args.CI["lower"]) / len(args.CI["lower"]), 2)
-        )
-    else:
-        args.logger.info("no valid lower CI")
-        args.time_result[args.ratio].append(-1)
-
-    if len(args.CI["upper"]) > 0:
-        args.time_result[args.ratio].append(
-            round(sum(args.CI["upper"]) / len(args.CI["upper"]), 2)
-        )
-    else:
-        args.logger.info("no valid upper CI")
-        args.time_result[args.ratio].append(-1)
-
-    if len(args.p_value) > 0:
-        args.time_result[args.ratio].append(
-            round(sum(args.p_value) / len(args.p_value), 2)
-        )
-    else:
-        args.logger.info("no valid p-value")
-        args.time_result[args.ratio].append(-1)
-
-    return result_list, time_used_list
+from hypothesis_testing import hypothesis_testing
+from instance_extraction import extract_attributes, extract_instances
+from samplers.phase import PHASE
+from samplers.phase_opt import Opt_PHASE
+from samplers.subgraph_sampler import TriangleSubgraphSampler
 
 
 class RandomNodeEdgeSampler_new(RandomNodeEdgeSampler):
