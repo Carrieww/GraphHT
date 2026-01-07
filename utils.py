@@ -1,9 +1,11 @@
 import logging
 import os
 import random
+
 import numpy as np
 import torch
 from scipy import stats
+
 from dataprep.citation_prep import citation_prep
 from dataprep.movielens_prep import movielens_prep
 from dataprep.yelp_prep import yelp_prep
@@ -28,27 +30,30 @@ def logger(args):
     """
     Create and configure logger
     """
-    if len(args.attribute) == 1:
+    if len(args.hypothesis_pattern) == 1:
         args.log_folderPath = os.path.join(
             os.path.dirname(os.path.realpath(__file__)),
             "result",
-            "one_sample_log_and_results_" + str(list(args.attribute.keys())[0]),
+            "one_sample_log_and_results_"
+            + str(list(args.hypothesis_pattern.keys())[0]),
         )
-    else:
-        args.log_folderPath = os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            "result",
-            "two_sample_log_and_results_" + str(args.dataset),
-        )
+        # else:
+        #     # Commented out: we only support length == 1 now
+        #     args.log_folderPath = os.path.join(
+        #         os.path.dirname(os.path.realpath(__file__)),
+        #         "result",
+        #         "two_sample_log_and_results_" + str(args.dataset),
+        #     )
 
-    if len(args.attribute) == 1:
-        string = str(list(args.attribute.keys())[0])
-    elif len(args.attribute) == 2:
-        string = str(list(args.attribute.keys())[0]) + str(
-            list(args.attribute.keys())[1]
-        )
+        # if len(args.hypothesis_pattern) == 1:
+        string = str(list(args.hypothesis_pattern.keys())[0])
+    # elif len(args.hypothesis_pattern) == 2:
+    #     # Commented out: we only support length == 1 now
+    #     string = str(list(args.hypothesis_pattern.keys())[0]) + str(
+    #         list(args.hypothesis_pattern.keys())[1]
+    #     )
     else:
-        raise Exception(f"Sorry we dont support more than 2 comparisons.")
+        raise Exception(f"Sorry we only support one hypothesis pattern (length == 1).")
     args.log_filepath = os.path.join(
         args.log_folderPath,
         args.dataset
@@ -84,7 +89,7 @@ def log_global_info(args):
     args.logger.info(f"Dataset: {args.dataset}, Seed: {args.seed}")
     args.logger.info(f"Sampling Method: {args.sampling_method}")
     args.logger.info(f"Sampling Ratio: {args.sampling_percent}")
-    args.logger.info(f"Attribute: {args.attribute}")
+    args.logger.info(f"Hypothesis pattern: {args.hypothesis_pattern}")
     args.logger.info(f"Aggregation Method: {args.agg}")
     args.logger.info(f"=========== Start Running ===========")
 
@@ -129,7 +134,9 @@ def print_hypo_log(args, t_stat, p_value, H0, **kwargs):
 
 
 def get_data(args):
-    assert args.attribute is not None, f"args.attribute should not be None."
+    assert (
+        args.hypothesis_pattern is not None
+    ), f"args.hypothesis_pattern should not be None."
     if args.dataset == "movielens":
         return movielens_prep(args)
 
@@ -157,7 +164,7 @@ def HypothesisTesting(args, result_list, verbose=1):
             result_list, popmean=args.c, alternative=alternative
         )
         CI_lower, CI_upper = stats.t.interval(
-            confidence=1-args.alpha,
+            confidence=1 - args.alpha,
             df=len(result_list) - 1,
             loc=np.mean(result_list),
             scale=stats.sem(result_list),

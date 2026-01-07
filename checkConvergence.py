@@ -1,17 +1,21 @@
 # Step 1: Import necessary packages
-from littleballoffur.sampler import Sampler
-from collections import defaultdict
-from typing import List
-import pickle
-import random
-import os
 import argparse
 import logging
-import numpy as np
+import os
+import pickle
+import random
+from collections import defaultdict
+from typing import List
+
 import matplotlib.pyplot as plt
-from main import prepare_dataset
-from utils import setup_seed
+import numpy as np
+from littleballoffur.sampler import Sampler
+
 from extraction import getEdges, getNodes, getPaths
+from main import getGroundTruth, prepare_dataset
+from utils import setup_seed
+
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Model parameters")
 
@@ -32,15 +36,9 @@ def parse_args():
     parser.add_argument(
         "--sampling_method",
         type=str,
-        default="Opt_PHASE", # Opt_PHASE
+        default="Opt_PHASE",
         help="sampling method.",
     )
-    # parser.add_argument(
-    #     "--sampling_percent",
-    #     type=list,
-    #     default=[0.1, 0.2, 0.3, 0.4, 0.5, 1, 2.5, 5, 7.5, 10],
-    #     help="list of sampling proportions.",
-    # )
     parser.add_argument(
         "--num_samples",
         type=int,
@@ -63,37 +61,30 @@ def parse_args():
         help="We support one-sample hypothesis testing.",
     )
     parser.add_argument(
-        "--attribute",
+        "--hypothesis_pattern",
         type=dict,
-        default={'3-1-1': {'edge': 'stars', 'path': [{'type': 'business', 'attribute': {'state': 'LA'}}, {'type': 'user', 'attribute': {'popularity': 'medium'}}, {'type': 'business', 'attribute': {'state': 'AB'}}]}},
-        help="the attributes you want to test hypothesis on.",
-    )
-    parser.add_argument(
-        "--agg",
-        type=str,
-        default="mean",
-        help="aggregation function.",
-    )
-    parser.add_argument(
-        "--hypo",
-        type=int,
-        default=3,
-        choices=[1, 2, 3],
-        help="1: edge hypothesis; 2: node hypothesis; 3: path hypothesis.",
-    )
-    parser.add_argument(
-        "--comparison",
-        type=str,
-        default=">",
-        choices=["!=", "==", ">", "<"],
-        help="comparison operator, choose from: !=, ==, >, <.",
-    )
-
-    parser.add_argument(
-        "--c",
-        type=float,
-        default=0.5,
-        help="a constant value in the hypothesis.",
+        default={
+            "3-1-1": {
+                "type": "path",  # "edge" | "node" | "path" | "subgraph"
+                "path": [
+                    {"type": "business", "attribute": {"state": "LA"}},
+                    {"type": "user", "attribute": {"popularity": "medium"}},
+                    {"type": "business", "attribute": {"state": "AB"}},
+                ],
+                "target": {
+                    "edge": "stars",  # or 'node': {'index': 2, 'attribute': 'age'}
+                },
+                "test": {
+                    "comparison": ">",  # "!=" | "==" | ">" | "<"
+                    "c": 0.5,  # constant value in hypothesis
+                    "agg": "mean",  # aggregation function
+                },
+            }
+        },
+        help="the hypothesis pattern to test on. "
+        "Format: {'name': {'type': 'edge'|'node'|'path'|'subgraph', 'structure': {...}, 'target': {'edge': 'attr'|'node': {...}}, 'test': {'comparison': '>', 'c': 0.5, 'agg': 'mean'}}}. "
+        "For path: {'name': {'type': 'path', 'path': [...], 'target': {'edge': 'attr'}, 'test': {...}}}; "
+        "For subgraph: {'name': {'type': 'subgraph', 'subgraph': {'nodes': [...], 'edges': [...]}, 'target': {'edge': 'attr'}, 'test': {...}}}",
     )
 
     ### our sampler hyper-parameter
@@ -105,6 +96,44 @@ def parse_args():
     )
 
     args = parser.parse_args()
+
+    # Extract hypothesis parameters from hypothesis_pattern if available
+    if args.hypothesis_pattern and len(args.hypothesis_pattern) > 0:
+        pattern_key = list(args.hypothesis_pattern.keys())[0]
+        pattern = args.hypothesis_pattern[pattern_key]
+
+        # Extract type (hypo)
+        if "type" in pattern:
+            type_mapping = {"edge": 1, "node": 2, "path": 3, "subgraph": 4}
+            if pattern["type"] in type_mapping:
+                args.hypo = type_mapping[pattern["type"]]
+            else:
+                raise ValueError(f"Unknown hypothesis type: {pattern['type']}")
+        else:
+            raise ValueError("hypothesis_pattern must contain a 'type' key.")
+
+        # Extract test parameters
+        if "test" in pattern:
+            test_config = pattern["test"]
+            if "comparison" in test_config:
+                args.comparison = test_config["comparison"]
+            else:
+                raise ValueError(
+                    "hypothesis_pattern['test'] must contain a 'comparison' key."
+                )
+            if "c" in test_config:
+                args.c = test_config["c"]
+            else:
+                raise ValueError("hypothesis_pattern['test'] must contain a 'c' key.")
+            if "agg" in test_config:
+                args.agg = test_config["agg"]
+            else:
+                raise ValueError(
+                    "hypothesis_pattern['test'] must contain an 'agg' key."
+                )
+        else:
+            raise ValueError("hypothesis_pattern must contain a 'test' key.")
+
     return args
 
 
@@ -132,7 +161,9 @@ class DegreeBasedSampler(Sampler):
         """
         if not self.nodes:  # Initialize once
             self.nodes = list(range(self.backend.get_number_of_nodes(graph)))
-            self.degrees = np.array([float(self.backend.get_degree(graph, node)) for node in self.nodes])
+            self.degrees = np.array(
+                [float(self.backend.get_degree(graph, node)) for node in self.nodes]
+            )
 
         current_sample_size = len(self.sampled_nodes)
         additional_nodes_needed = checkpoint - current_sample_size
@@ -144,7 +175,10 @@ class DegreeBasedSampler(Sampler):
         degree_sum = sum(remaining_degrees)
         probabilities = remaining_degrees / degree_sum
         new_sampled_nodes = np.random.choice(
-            remaining_nodes, size=additional_nodes_needed, replace=False, p=probabilities
+            remaining_nodes,
+            size=additional_nodes_needed,
+            replace=False,
+            p=probabilities,
         )
         self.sampled_nodes.update(new_sampled_nodes)
         return list(self.sampled_nodes)
@@ -187,14 +221,16 @@ class RandomNodeSampler(Sampler):
         """
         total_nodes = self.backend.get_nodes(graph)
         remaining_nodes = list(set(total_nodes) - self.sampled_nodes)
-        nodes_needed = checkpoint - len(self.sampled_nodes)  # Calculate how many more nodes are needed
+        nodes_needed = checkpoint - len(
+            self.sampled_nodes
+        )  # Calculate how many more nodes are needed
 
         if nodes_needed > 0:
             new_sampled_nodes = random.sample(remaining_nodes, nodes_needed)
             self.sampled_nodes.update(new_sampled_nodes)
         return list(self.sampled_nodes)
 
-    def sample(self, graph,checkpoint: int):
+    def sample(self, graph, checkpoint: int):
         """
         Sampling nodes randomly.
 
@@ -206,9 +242,10 @@ class RandomNodeSampler(Sampler):
         """
         self._deploy_backend(graph)
         self._check_number_of_nodes(graph)
-        sampled_nodes = self._create_initial_node_set(graph,checkpoint)
+        sampled_nodes = self._create_initial_node_set(graph, checkpoint)
         new_graph = self.backend.get_subgraph(graph, sampled_nodes)
         return new_graph
+
 
 class RandomWalkSampler(Sampler):
     r"""An implementation of node sampling by random walks. A simple random walker
@@ -232,10 +269,15 @@ class RandomWalkSampler(Sampler):
         Choosing an initial node.
         """
         if self._current_node is None:
-            if start_node is not None and 0 <= start_node < self.backend.get_number_of_nodes(graph):
+            if (
+                start_node is not None
+                and 0 <= start_node < self.backend.get_number_of_nodes(graph)
+            ):
                 self._current_node = start_node
             else:
-                self._current_node = random.choice(range(self.backend.get_number_of_nodes(graph)))
+                self._current_node = random.choice(
+                    range(self.backend.get_number_of_nodes(graph))
+                )
 
         self._sampled_nodes.add(self._current_node)
 
@@ -246,9 +288,7 @@ class RandomWalkSampler(Sampler):
         self._current_node = self.backend.get_random_neighbor(graph, self._current_node)
         self._sampled_nodes.add(self._current_node)
 
-    def sample(
-        self, graph, checkpoint: int, start_node: int = None
-    ):
+    def sample(self, graph, checkpoint: int, start_node: int = None):
         """
         Sampling nodes with a single random walk.
 
@@ -283,11 +323,11 @@ class Opt_PHASE(Sampler):
     """
 
     def __init__(
-            self,
-            condition: list,
-            number_of_seeds: int = 50,
-            number_of_nodes: int = 100,
-            seed: int = 42,
+        self,
+        condition: list,
+        number_of_seeds: int = 50,
+        number_of_nodes: int = 100,
+        seed: int = 42,
     ):
         super().__init__()
         self.number_of_seeds = number_of_seeds
@@ -329,9 +369,9 @@ class Opt_PHASE(Sampler):
 
             # vague match for citation 3-1-1
             if graph.nodes[node][attr] != value and (
-                    value not in graph.nodes[node][attr]
-                    if isinstance(graph.nodes[node][attr], str)
-                    else True
+                value not in graph.nodes[node][attr]
+                if isinstance(graph.nodes[node][attr], str)
+                else True
             ):
                 flag = False
                 break
@@ -342,7 +382,7 @@ class Opt_PHASE(Sampler):
         assign weight to neighboring nodes.
         """
         assert (
-                neighbor is not None
+            neighbor is not None
         ), f"neighbor must be provided for assigning path weights."
 
         # path hypo
@@ -461,7 +501,7 @@ class Opt_PHASE(Sampler):
         self._nodes.add(new_seed)
         self._seeds[self.index] = new_seed
 
-    def sample(self, graph, args,checkpoint):
+    def sample(self, graph, args, checkpoint):
         self.number_of_nodes = checkpoint
 
         if not self._seeds:
@@ -496,18 +536,26 @@ def sample_and_calculate_mean_citations(graph, sample_sizes, sampler_list):
         current_size = 0
 
         if sampler_name == "DBS":
-            sampler = DegreeBasedSampler(max(sample_sizes), seed = int(args.seed))
+            sampler = DegreeBasedSampler(max(sample_sizes), seed=int(args.seed))
         elif sampler_name == "Opt_PHASE":
+            pattern_key = list(args.hypothesis_pattern.keys())[0]
+            pattern = args.hypothesis_pattern[pattern_key]
+            # Extract path from hypothesis_pattern (for path type)
+            if pattern["type"] == "path" and "path" in pattern:
+                path_condition = pattern["path"]
+            else:
+                raise ValueError(
+                    f"Opt_PHASE requires path type hypothesis with 'path' key in hypothesis_pattern."
+                )
             sampler = Opt_PHASE(
-                args.attribute[str(list(args.attribute.keys())[0])]["path"],
+                path_condition,
                 number_of_nodes=max(sample_sizes),
                 seed=int(args.seed),
             )
         elif sampler_name == "SRW":
-            sampler = RandomWalkSampler(max(sample_sizes), seed = int(args.seed))
+            sampler = RandomWalkSampler(max(sample_sizes), seed=int(args.seed))
         elif sampler_name == "RNS":
-            sampler = RandomNodeSampler(max(sample_sizes), seed = int(args.seed))
-
+            sampler = RandomNodeSampler(max(sample_sizes), seed=int(args.seed))
 
         for size in sample_sizes:
             args.logger.info(f">>> start size {size}")
@@ -525,19 +573,23 @@ def sample_and_calculate_mean_citations(graph, sample_sizes, sampler_list):
                 sampled_subgraph,
                 30,
             )
-            mean_citations[sampler_name].append(result_list["3-1-1"])
-            args.logger.info(f"mean for size {size} is {result_list['3-1-1']}")
-            print(f"mean for size {size} is {result_list['3-1-1']}")
+            pattern_key = str(list(args.hypothesis_pattern.keys())[0])
+            mean_citations[sampler_name].append(result_list[pattern_key])
+            args.logger.info(f"mean for size {size} is {result_list[pattern_key]}")
+            print(f"mean for size {size} is {result_list[pattern_key]}")
 
-        with open(os.path.join(args.log_folderPath, f"convergence_{args.dataset}_Opt_PHASE_0429.pkl"), 'wb') as f:
+        with open(
+            os.path.join(
+                args.log_folderPath, f"convergence_{args.dataset}_Opt_PHASE_0429.pkl"
+            ),
+            "wb",
+        ) as f:
             pickle.dump(mean_citations, f)
 
     return mean_citations
 
 
-def time_sampling_extraction(
-        args, new_graph, num_sample
-):
+def time_sampling_extraction(args, new_graph, num_sample):
     result_list = new_graph_hypo_result(args, new_graph)
 
     return result_list
@@ -558,6 +610,17 @@ def new_graph_hypo_result(args, new_graph):
         if args.hypo == 1:
             total_result = dataset_info["edge"](args, new_graph)
         elif args.hypo == 2:
+            # Extract dimension from hypothesis_pattern if needed
+            pattern_key = list(args.hypothesis_pattern.keys())[0]
+            pattern = args.hypothesis_pattern[pattern_key]
+            if "dimension" in pattern:
+                args.dimension = pattern["dimension"]
+            elif hasattr(args, "dimension") and args.dimension is not None:
+                pass  # Use existing dimension
+            else:
+                raise ValueError(
+                    "dimension is required for node hypothesis but not found in hypothesis_pattern."
+                )
             total_result = dataset_info["node"](
                 args, new_graph, dimension=args.dimension
             )
@@ -573,8 +636,8 @@ def new_graph_hypo_result(args, new_graph):
     else:
         raise Exception(f"Sorry, we don't support the dataset {args.dataset}.")
 
-    if str(list(args.attribute.keys())[0]) not in total_result:
-        total_result[list(args.attribute.keys())[0]] = []
+    if str(list(args.hypothesis_pattern.keys())[0]) not in total_result:
+        total_result[list(args.hypothesis_pattern.keys())[0]] = []
 
     result = {}
 
@@ -585,7 +648,7 @@ def new_graph_hypo_result(args, new_graph):
                 if len(v) != 0:
                     print("not zero now!!!")
                     args.logger.info("not zero now!!!")
-                    result[attribute] = sum(v)/len(v)
+                    result[attribute] = sum(v) / len(v)
                 #     hypo_result = HypothesisTesting(args, v, 1)
                 #     result[attribute] = hypo_result
                 else:
@@ -600,14 +663,15 @@ def new_graph_hypo_result(args, new_graph):
 
 def logger(args):
     args.log_folderPath = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        "convergence"
+        os.path.dirname(os.path.realpath(__file__)), "convergence"
     )
 
     if not os.path.exists(args.log_folderPath):
         os.makedirs(args.log_folderPath)
 
-    args.log_filepath = os.path.join(args.log_folderPath, f"convergence_{args.dataset}_Opt_PHASE_0429.log")
+    args.log_filepath = os.path.join(
+        args.log_folderPath, f"convergence_{args.dataset}_Opt_PHASE_0429.log"
+    )
 
     logging.basicConfig(
         filename=args.log_filepath, format="%(asctime)s %(message)s", filemode="w"
@@ -625,25 +689,61 @@ setup_seed(args)
 logger(args)
 G = prepare_dataset(args)
 
-sampler_list = ["RNS","Opt_PHASE","DBS"]
-sample_sizes = np.linspace(50000, 1623013, 100, dtype=int)  # From 10 to 1000 nodes in 20 steps
+# Calculate ground truth value for convergence plot
+if args.dataset in ["movielens", "citation", "yelp"]:
+    ground_truth_dict = getGroundTruth(args, G)
+    pattern_key = str(list(args.hypothesis_pattern.keys())[0])
+    if args.HTtype == "one-sample":
+        args.ground_truth = ground_truth_dict[pattern_key]
+    # ground_truth_value is set in getGroundTruth function
+    if not hasattr(args, "ground_truth_value"):
+        # Fallback: calculate mean if not set
+        attribute_key = str(list(args.hypothesis_pattern.keys())[0])
+        if args.hypo == 1:
+            dict_result = getEdges(args, G)
+        elif args.hypo == 2:
+            args.dimension = args.hypothesis_pattern[attribute_key].get(
+                "dimension", None
+            )
+            dict_result = getNodes(args, G, dimension=args.dimension)
+        elif args.hypo == 3:
+            args.total_valid = 0
+            args.total_minus_reverse = 0
+            dict_result = getPaths(args, G)
+        if attribute_key in dict_result and len(dict_result[attribute_key]) > 0:
+            args.ground_truth_value = round(
+                sum(dict_result[attribute_key]) / len(dict_result[attribute_key]), 2
+            )
+        else:
+            args.ground_truth_value = 0.0
+else:
+    args.ground_truth_value = 0.0
+
+sampler_list = ["RNS", "Opt_PHASE", "DBS"]
+sample_sizes = np.linspace(
+    50000, 1623013, 100, dtype=int
+)  # From 10 to 1000 nodes in 20 steps
 sample_sizes = sample_sizes[:90]
 print(sample_sizes)
 args.logger.info(sample_sizes)
 print("\n")
 args.logger.info("\n")
 
-mean_citations = sample_and_calculate_mean_citations(G, sample_sizes,sampler_list)
+mean_citations = sample_and_calculate_mean_citations(G, sample_sizes, sampler_list)
 
 
 # Plotting the results
 colors = ["#347B98", "#D63447", "#FDAC53", "#9DC209", "#285943", "#774936", "#4A5899"]
 plt.figure(figsize=(10, 6))
-x =np.around((sample_sizes / 1623013) * 100, decimals=2)
+x = np.around((sample_sizes / 1623013) * 100, decimals=2)
 for i, sampler_name in enumerate(sampler_list):
-    plt.plot(x, mean_citations[sampler_name], label=sampler_name,marker='o',color = colors[i])
+    plt.plot(
+        x, mean_citations[sampler_name], label=sampler_name, marker="o", color=colors[i]
+    )
 
-plt.axhline(y=args.ground_truth_value, color='r',linestyle='--', label="Avg Citation of Graph")
+plt.axhline(
+    y=args.ground_truth_value, color="r", linestyle="--", label="Avg Citation of Graph"
+)
 plt.xlabel("Percentage of sampled nodes (%)")
 plt.ylabel("Aggregated value")
 plt.title(f"Convergence of aggregated value - {args.dataset}")

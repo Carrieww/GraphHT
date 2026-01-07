@@ -1,6 +1,7 @@
-from littleballoffur.sampler import Sampler
-import numpy as np
 import random
+
+import numpy as np
+from littleballoffur.sampler import Sampler
 
 
 class PHASE(Sampler):

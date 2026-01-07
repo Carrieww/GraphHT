@@ -1,30 +1,32 @@
-import time
 import random
+import time
+
 import networkx as nx
 import numpy as np
-
-from extraction import new_graph_hypo_result
-from PHASE import PHASE
-from Opt_PHASE import Opt_PHASE
 from littleballoffur import (
-    RandomNodeNeighborSampler,
-    RandomWalkSampler,
-    ForestFireSampler,
-    ShortestPathSampler,
-    MetropolisHastingsRandomWalkSampler,
-    CommunityStructureExpansionSampler,
-    NonBackTrackingRandomWalkSampler,
-    SnowBallSampler,
-    RandomWalkWithRestartSampler,
-    FrontierSampler,
     CommonNeighborAwareRandomWalkSampler,
-    RandomNodeSampler,
+    CommunityStructureExpansionSampler,
     DegreeBasedSampler,
+    ForestFireSampler,
+    FrontierSampler,
+    MetropolisHastingsRandomWalkSampler,
+    NonBackTrackingRandomWalkSampler,
     PageRankBasedSampler,
     RandomEdgeSampler,
-    RandomNodeEdgeSampler,
     RandomEdgeSamplerWithInduction,
+    RandomNodeEdgeSampler,
+    RandomNodeNeighborSampler,
+    RandomNodeSampler,
+    RandomWalkSampler,
+    RandomWalkWithRestartSampler,
+    ShortestPathSampler,
+    SnowBallSampler,
 )
+
+from extraction import new_graph_hypo_result
+from Opt_PHASE import Opt_PHASE
+from PHASE import PHASE
+from subgraph_sampler import TriangleSubgraphSampler
 
 
 def time_sampling_extraction(
@@ -61,6 +63,7 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
         "RES_Induction": RandomEdgeSamplerWithInduction,
         "PHASE": PHASE,
         "Opt_PHASE": Opt_PHASE,
+        "TriangleS": TriangleSubgraphSampler,
     }
 
     if sampler_type not in sampler_mapping:
@@ -86,31 +89,50 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
             model = sampler_class(number_of_edges=args.ratio, seed=seed)
         elif sampler_type == "PHASE":
             model = PHASE(
-                args.attribute[str(list(args.attribute.keys())[0])]["path"],
+                args.hypothesis_pattern[str(list(args.hypothesis_pattern.keys())[0])][
+                    "path"
+                ],
                 number_of_nodes=args.ratio,
                 seed=seed,
             )
         elif sampler_type == "Opt_PHASE":
             model = Opt_PHASE(
-                args.attribute[str(list(args.attribute.keys())[0])]["path"],
+                args.hypothesis_pattern[str(list(args.hypothesis_pattern.keys())[0])][
+                    "path"
+                ],
                 number_of_nodes=args.ratio,
+                seed=seed,
+            )
+        elif sampler_type == "TriangleS":
+            # Get the hypothesis pattern for subgraph sampling
+            pattern_key = str(list(args.hypothesis_pattern.keys())[0])
+            pattern = args.hypothesis_pattern[pattern_key]
+            model = TriangleSubgraphSampler(
+                pattern=pattern,
+                number_of_subgraphs=args.ratio,  # args.ratio represents number of subgraphs to sample
                 seed=seed,
             )
         else:
             model = sampler_class(number_of_nodes=args.ratio, seed=seed)
 
-        if sampler_type == "PHASE" or sampler_type == "Opt_PHASE":
-            new_graph = model.sample(graph, args)
+        if sampler_type == "TriangleS":
+            Set_S = model.sample(graph)
         else:
-            new_graph = model.sample(graph)
-        num_nodes = new_graph.number_of_nodes()
-        num_edges = new_graph.number_of_edges()
+            if sampler_type in ["PHASE", "Opt_PHASE"]:
+                new_graph = model.sample(graph, args)
+            else:
+                new_graph = model.sample(graph)
+            num_nodes = new_graph.number_of_nodes()
+            num_edges = new_graph.number_of_edges()
 
-        args.logger.info(
-            f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
-        )
-        print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
+            args.logger.info(
+                f"The sampled graph has {num_nodes} nodes and {num_edges} edges."
+            )
+            print(f"The sampled graph has {num_nodes} nodes and {num_edges} edges.")
 
+        # decouple the pattern extraction and hypothesis testing.
+        # For sampler_type other than TriangleS, we need to extract the pattern from the sampled graph.
+        # But for TriangleS, the output is a already list of triangles, we can directly perform hypothesis testing.
         result_list, time_used_list = time_sampling_extraction(
             args,
             new_graph,
@@ -119,14 +141,6 @@ def sample_graph(args, graph, result_list, time_used_list, sampler_type):
             time_one_sample_start,
             num_sample,
         )
-        # overall_time_spent = round(time.time() - args.overall_time, 2)
-        # if overall_time_spent > 18000:
-        #     args.logger.error(
-        #         f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 18000 (5 hours). So we terminate it."
-        #     )
-        #     raise Exception(
-        #         f"The overall time spend for sampling and hypothsis testing is {overall_time_spent} > 18000 (5 hours). So we terminate it."
-        #     )
 
     if len(args.CI["lower"]) > 0:
         args.time_result[args.ratio].append(
