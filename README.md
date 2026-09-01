@@ -27,7 +27,7 @@ pip install -r requirements.txt
 ```
 3. Run the framework
 
-The preprocessed dataset can be found here on OneDrive: <a href="https://connecthkuhk-my.sharepoint.com/:f:/g/personal/carrie07_connect_hku_hk/EsIJtppoMWxGgsYpXvRb7c0B1tidq4n5XH43MvKxgSHWfw?e=v48xjz">link</a>.
+The preprocessed dataset can be found here: <a href="https://drive.google.com/drive/folders/1IpEsr_9gPjNIKWEibKYQZMHMgwj5SRpr?usp=drive_link">link</a>.
 
 You can either run:
 ```
